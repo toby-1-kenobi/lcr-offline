@@ -3,11 +3,13 @@ package org.sil.lcroffline;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -15,6 +17,15 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.CookieManager;
+import java.net.CookieHandler;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
  * A login screen that offers login via email/password.
@@ -42,10 +53,15 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Prepare to handle cookies
+        CookieManager cookieManager = new CookieManager();
+        CookieHandler.setDefault(cookieManager);
+
         setContentView(R.layout.activity_login);
+
         // Set up the login form.
         mPhoneView = (EditText) findViewById(R.id.phone);
-
         mPasswordView = (EditText) findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
@@ -191,10 +207,21 @@ public class LoginActivity extends AppCompatActivity {
             // TODO: attempt authentication against a network service.
 
             try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+
+                Uri builtUri = Uri.parse(BuildConfig.LCR_URL).buildUpon().appendPath("/login").build();
+                URL url = new URL(builtUri.toString());
+
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod("POST");
+                urlConnection.connect();
+
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "Error ", e);
                 return false;
+            } finally{
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
             }
 
             for (String credential : DUMMY_CREDENTIALS) {
