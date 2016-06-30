@@ -12,13 +12,17 @@ android {
         versionName "1.0"
     }
     buildTypes {
+        def LCR_URL = 'LCR_URL'
+
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            buildConfigField 'String', LCR_URL, "\"https://lcreporter.herokuapp.com\""
         }
-    }
-    buildTypes.each {
-        it.buildConfigField 'String', 'LCR_URL', "\"https://lcreporter-sandbox.herokuapp.com\""
+
+        debug {
+            buildConfigField 'String', LCR_URL, "\"https://lcreporter-test.herokuapp.com\""
+        }
     }
 }
 

@@ -17,28 +17,32 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.CookieManager;
 import java.net.CookieHandler;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * A login screen that offers login via email/password.
  */
 public class LoginActivity extends AppCompatActivity {
 
-    /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
      */
@@ -192,7 +196,9 @@ public class LoginActivity extends AppCompatActivity {
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+    public class UserLoginTask extends AsyncTask<Void, Void, String> {
+
+        private final String LOG_TAG = UserLoginTask.class.getSimpleName();
 
         private final String mPhone;
         private final String mPassword;
@@ -203,49 +209,131 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
+        protected String doInBackground(Void... params) {
+
+            // put together the post request
+            JSONObject jsonCredentials = new JSONObject();
+            JSONObject jsonRoot = new JSONObject();
+            try {
+                jsonCredentials.put("phone", mPhone);
+                jsonCredentials.put("password", mPassword);
+                jsonRoot.put("auth", jsonCredentials);
+            } catch (JSONException e) {
+                Log.e(LOG_TAG, "Error building authentication post request ", e);
+                return null;
+            }
+            String postData = jsonRoot.toString();
+            Log.d(LOG_TAG, "post data: " + postData);
+            Log.d(LOG_TAG, "post data length: " + postData.length());
+
+            // These need to be declared outside the try/catch
+            // so that they can be closed in the finally block.
+            HttpsURLConnection urlConnection = null;
+            BufferedWriter postWriter = null;
+            BufferedReader responseReader = null;
+
+            // Will contain the raw JSON response as a string.
+            String tokenJsonStr = null;
 
             try {
 
-                Uri builtUri = Uri.parse(BuildConfig.LCR_URL).buildUpon().appendPath("/login").build();
+                Uri builtUri = Uri.parse(BuildConfig.LCR_URL).buildUpon().appendPath("knock").appendPath("auth_token").build();
                 URL url = new URL(builtUri.toString());
+                Log.d(LOG_TAG, "connecting to " + url.toString());
 
-                urlConnection = (HttpURLConnection) url.openConnection();
+                // connect to LCR
+                urlConnection = (HttpsURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("POST");
+                urlConnection.setDoOutput(true);
+                urlConnection.setRequestProperty("Content-Type", "application/json");
                 urlConnection.connect();
+
+                // post the user credentials
+                postWriter = new BufferedWriter(new OutputStreamWriter(urlConnection.getOutputStream()));
+                postWriter.write(postData);
+                postWriter.flush();
+                postWriter.close();
+
+                // check the response
+                int responseCode  = urlConnection.getResponseCode();
+                if (responseCode >= 200 && responseCode < 300) {
+                    // successful response
+                    Log.d(LOG_TAG, "server responses success " + responseCode);
+                    // next read the token
+                    InputStream inputStream = urlConnection.getInputStream();
+                    if (inputStream == null) {
+                        // token is missing
+                        Log.e(LOG_TAG, "Authentication token not received");
+                        return null;
+                    }
+                    responseReader = new BufferedReader(new InputStreamReader(inputStream));
+                    StringBuffer buffer = new StringBuffer();
+
+                    String line;
+                    while ((line = responseReader.readLine()) != null) {
+                        buffer.append(line).append("\n");
+                    }
+
+                    if (buffer.length() == 0) {
+                        // Stream was empty.  No token here.
+                        Log.e(LOG_TAG, "Authentication token not received");
+                        return null;
+                    }
+                    tokenJsonStr = buffer.toString();
+                } else if (responseCode >= 400 && responseCode < 500) {
+                    // server error response means the authentication didn't go through
+                    Log.d(LOG_TAG, "server error " + responseCode);
+                    return null;
+                } else {
+                    Log.e(LOG_TAG, "Unexpected server response code: " + responseCode);
+                    return null;
+                }
 
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error ", e);
-                return false;
+                return null;
             } finally{
                 if (urlConnection != null) {
                     urlConnection.disconnect();
                 }
-            }
-
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mPhone)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
+                if (postWriter != null) {
+                    try {
+                        postWriter.close();
+                    } catch (IOException e) {
+                        Log.e(LOG_TAG, "Error closing stream", e);
+                    }
+                }
+                if (responseReader != null) {
+                    try {
+                        responseReader.close();
+                    } catch (IOException e) {
+                        Log.e(LOG_TAG, "Error closing stream", e);
+                    }
                 }
             }
 
-            // TODO: register the new account here.
-            return true;
+            try {
+                JSONObject tokenJson = new JSONObject(tokenJsonStr);
+                return tokenJson.getString("jwt");
+            } catch (JSONException e) {
+                Log.e(LOG_TAG, "Error fetching token from JSON", e);
+                return null;
+            }
         }
 
         @Override
-        protected void onPostExecute(final Boolean success) {
+        protected void onPostExecute(final String token) {
             mAuthTask = null;
             showProgress(false);
 
-            if (success) {
-                finish();
-            } else {
+            Log.d(LOG_TAG, "token: " + token);
+
+            if (token == null) {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
                 mPasswordView.requestFocus();
+            } else {
+                Toast.makeText(getApplicationContext(), "Success", Toast.LENGTH_SHORT).show();
+                // save the token and credentials
             }
         }
 

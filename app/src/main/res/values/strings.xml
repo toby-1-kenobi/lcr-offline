@@ -2,11 +2,11 @@
     <string name="app_name">LCR Offline</string>
 
     <!-- Strings related to login -->
-    <string name="prompt_phone">Phone</string>
+    <string name="prompt_phone">Phone number</string>
     <string name="prompt_password">Password</string>
     <string name="action_sign_in">Sign in</string>
     <string name="error_invalid_phone">This phone number is invalid</string>
     <string name="error_invalid_password">This password is too short</string>
-    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_incorrect_password">This phone number or password is incorrect</string>
     <string name="error_field_required">This field is required</string>
 </resources>
