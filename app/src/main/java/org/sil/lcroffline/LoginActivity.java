@@ -3,6 +3,7 @@ package org.sil.lcroffline;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -223,8 +224,6 @@ public class LoginActivity extends AppCompatActivity {
                 return null;
             }
             String postData = jsonRoot.toString();
-            Log.d(LOG_TAG, "post data: " + postData);
-            Log.d(LOG_TAG, "post data length: " + postData.length());
 
             // These need to be declared outside the try/catch
             // so that they can be closed in the finally block.
@@ -334,6 +333,11 @@ public class LoginActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(getApplicationContext(), "Success", Toast.LENGTH_SHORT).show();
                 // save the token and credentials
+
+
+                // on successful login go to the main activity
+                Intent mainIntent = new Intent(getApplicationContext(), MainActivity.class);
+                startActivity(mainIntent);
             }
         }
 

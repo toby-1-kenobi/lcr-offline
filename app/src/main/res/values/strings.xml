@@ -9,4 +9,5 @@
     <string name="error_invalid_password">This password is too short</string>
     <string name="error_incorrect_password">This phone number or password is incorrect</string>
     <string name="error_field_required">This field is required</string>
+    <string name="title_activity_main">MainActivity</string>
 </resources>
