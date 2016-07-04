@@ -3,7 +3,11 @@ package org.sil.lcroffline;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -36,6 +40,8 @@ import java.net.CookieHandler;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -43,6 +49,9 @@ import javax.net.ssl.HttpsURLConnection;
  * A login screen that offers login via email/password.
  */
 public class LoginActivity extends AppCompatActivity {
+
+
+    private final String LOG_TAG = LoginActivity.class.getSimpleName();
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -140,11 +149,58 @@ public class LoginActivity extends AppCompatActivity {
             // form field with an error.
             focusView.requestFocus();
         } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
-            showProgress(true);
-            mAuthTask = new UserLoginTask(phone, password);
-            mAuthTask.execute((Void) null);
+            if (isNetworkAvailable()) {
+                // Show a progress spinner, and kick off a background task to
+                // perform the user login attempt.
+                showProgress(true);
+                mAuthTask = new UserLoginTask(phone, password);
+                mAuthTask.execute((Void) null);
+            } else {
+                Log.i(LOG_TAG, "Offline Login");
+                // without a network connection we try to authenticate with
+                // stored credentials that were previously used successfully
+                SharedPreferences userCredPref = getApplicationContext().getSharedPreferences(
+                        getString(R.string.user_cred_preference_file_key),
+                        Context.MODE_PRIVATE
+                );
+                if (userCredPref.contains(phone)) {
+                    String stored_password = userCredPref.getString(phone, null);
+                    Log.d(LOG_TAG, "stored password: " + stored_password);
+                    boolean match;
+                    if (userCredPref.getBoolean(phone + getString(R.string.password_is_hashed_key), true)) {
+                        try {
+                            Log.d(LOG_TAG, "password hash: " + sha1(password, phone));
+                            match = stored_password.contentEquals(sha1(password, phone));
+                        } catch (NoSuchAlgorithmException e) {
+                            Log.wtf(LOG_TAG, "SHA1 algorithm not available, yet this branch of code indicates we've used it before", e);
+                            match = stored_password.contentEquals(password);
+                        }
+                    } else {
+                        match = stored_password.contentEquals(password);
+                    }
+                    if (match) {
+                        if (userCredPref.contains(phone + getString(R.string.jwt_key))) {
+                            SharedPreferences.Editor sharedPrefEdit = getApplicationContext().getSharedPreferences(
+                                    getString(R.string.preference_file_key),
+                                    Context.MODE_PRIVATE
+                            ).edit();
+                            sharedPrefEdit.putString(
+                                    getString(R.string.jwt_key),
+                                    userCredPref.getString(phone + getString(R.string.jwt_key), null)
+                            ).apply();
+                        }
+                        onSuccessfulLogin();
+                    } else {
+                        // bad password
+                        mPasswordView.setError(getString(R.string.error_incorrect_password));
+                        mPasswordView.requestFocus();
+                    }
+                } else {
+                    // user credentials not stored
+                    mPhoneView.setError(getString(R.string.connection_required));
+                    mPhoneView.requestFocus();
+                }
+            }
         }
     }
 
@@ -154,7 +210,38 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private boolean isPasswordValid(String password) {
-        return password.length() > 6;
+        return password.length() >= 6;
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+    private void onSuccessfulLogin() {
+        // on successful login go to the main activity
+        Intent mainIntent = new Intent(getApplicationContext(), MainActivity.class);
+        startActivity(mainIntent);
+    }
+
+    private String sha1(String data, String salt) throws NoSuchAlgorithmException {
+        data = salt + data;
+        MessageDigest md = MessageDigest.getInstance("SHA1");
+        md.update(data.getBytes());
+        return bytesToHex(md.digest());
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        char hexDigit[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+        StringBuffer buf = new StringBuffer();
+        for (int j=0; j<bytes.length; j++) {
+            buf.append(hexDigit[(bytes[j] >> 4) & 0x0f]);
+            buf.append(hexDigit[bytes[j] & 0x0f]);
+        }
+        return buf.toString();
     }
 
     /**
@@ -245,6 +332,7 @@ public class LoginActivity extends AppCompatActivity {
                 urlConnection.setRequestMethod("POST");
                 urlConnection.setDoOutput(true);
                 urlConnection.setRequestProperty("Content-Type", "application/json");
+                urlConnection.setFixedLengthStreamingMode(postData.getBytes("UTF-8").length);
                 urlConnection.connect();
 
                 // post the user credentials
@@ -331,13 +419,36 @@ public class LoginActivity extends AppCompatActivity {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
                 mPasswordView.requestFocus();
             } else {
-                Toast.makeText(getApplicationContext(), "Success", Toast.LENGTH_SHORT).show();
                 // save the token and credentials
+                SharedPreferences sharedPref = getApplicationContext().getSharedPreferences(
+                        getString(R.string.preference_file_key),
+                        Context.MODE_PRIVATE
+                );
+                sharedPref.edit().putString(getString(R.string.jwt_key), token).apply();
 
+                SharedPreferences userCredPref = getApplicationContext().getSharedPreferences(
+                        getString(R.string.user_cred_preference_file_key),
+                        Context.MODE_PRIVATE
+                );
+                SharedPreferences.Editor userCredEdit = userCredPref.edit();
+                userCredEdit.putString(mPhone + getString(R.string.jwt_key), token);
+                // password should be hashed when stored
+                // use the phone number as salt
+                String hashedPassword = null;
+                try {
+                    hashedPassword = sha1(mPassword, mPhone);
+                    userCredEdit.putString(mPhone, hashedPassword);
+                    userCredEdit.putBoolean(mPhone + getString(R.string.password_is_hashed_key), true);
+                } catch (NoSuchAlgorithmException e) {
+                    // This is quite unexpected that the SHA1 algorithm is not available
+                    // Instead of crashing we'll risk storing the password in shared preferences without hashing
+                    Log.w(LOG_TAG, "cannot apply SHA1 so password is stored in plain text", e);
+                    userCredEdit.putString(mPhone, mPassword);
+                    userCredEdit.putBoolean(mPhone + getString(R.string.password_is_hashed_key), false);
+                }
+                userCredEdit.apply();
 
-                // on successful login go to the main activity
-                Intent mainIntent = new Intent(getApplicationContext(), MainActivity.class);
-                startActivity(mainIntent);
+                onSuccessfulLogin();
             }
         }
 
