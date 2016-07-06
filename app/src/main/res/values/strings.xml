@@ -10,11 +10,15 @@
     <string name="error_incorrect_password">This phone number or password is incorrect</string>
     <string name="error_field_required">This field is required</string>
     <string name="connection_required">An Internet connection is required for first time login.</string>
-    
+
     <string name="title_activity_main">MainActivity</string>
-    
+
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>
+    <string name="current_user_phone_key" translatable="false">current_user_phone</string>
     <string name="jwt_key" translatable="false">jwt</string>
     <string name="user_cred_preference_file_key" translatable="false">org.sil.lcroffline.USER_CRED_PREF_FILE</string>
     <string name="password_is_hashed_key" translatable="false">_password_is_hashed</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

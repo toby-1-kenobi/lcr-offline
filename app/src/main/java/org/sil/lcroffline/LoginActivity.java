@@ -424,7 +424,11 @@ public class LoginActivity extends AppCompatActivity {
                         getString(R.string.preference_file_key),
                         Context.MODE_PRIVATE
                 );
-                sharedPref.edit().putString(getString(R.string.jwt_key), token).apply();
+                sharedPref
+                        .edit()
+                        .putString(getString(R.string.current_user_phone_key), mPhone)
+                        .putString(getString(R.string.jwt_key), token)
+                        .apply();
 
                 SharedPreferences userCredPref = getApplicationContext().getSharedPreferences(
                         getString(R.string.user_cred_preference_file_key),
