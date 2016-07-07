@@ -23,7 +23,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final String LOG_TAG = DatabaseHelper.class.getSimpleName();
 
-    private static final int DATABASE_VERSION = 8;
+    private static final int DATABASE_VERSION = 9;
     private static final String DATABASE_NAME = "LCRoffline.db";
 
     private static final String PRIMARY_KEY = "id";
@@ -58,6 +58,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "FOREIGN KEY(" + USER_FOREIGN_KEY + ") REFERENCES " + USER_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
                     ") WITHOUT ROWID;";
 
+    private static final String LANGUAGE_TABLE_NAME = "languages";
+    public static final String LANGUAGE_NAME_FIELD = "name";
+    private static final String LANGUAGE_TABLE_CREATE =
+            "CREATE TABLE " + LANGUAGE_TABLE_NAME + " (" +
+                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    STATE_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    LANGUAGE_NAME_FIELD + " TEXT NOT NULL," +
+                    "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    ");";
+
     DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
@@ -67,6 +77,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(USER_TABLE_CREATE);
         db.execSQL(STATE_TABLE_CREATE);
         db.execSQL(STATE_USER_JOIN_TABLE_CREATE);
+        db.execSQL(LANGUAGE_TABLE_CREATE);
     }
 
     @Override
@@ -75,6 +86,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + USER_TABLE_NAME);
         db.execSQL("DROP TABLE IF EXISTS " + STATE_TABLE_NAME);
         db.execSQL("DROP TABLE IF EXISTS " + STATE_USER_JOIN_TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + LANGUAGE_TABLE_NAME);
         onCreate(db);
     }
 
@@ -103,6 +115,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             ContentValues values = new ContentValues();
             values.put(USER_NAME_FIELD, user.getString(UserFragment.LCR_USER_KEY_NAME));
             values.put(USER_PHONE_FIELD, user.getString(UserFragment.LCR_USER_KEY_PHONE));
+            boolean success = true;
             if (existing.getCount() == 0) {
                 // This user isn't in storage yet so use insert
                 values.put(PRIMARY_KEY, userID);
@@ -111,15 +124,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } else {
                 // This user already exists in storage, so use update.
                 Log.d(LOG_TAG, "updating user: " + userID);
-                db.update(
+                int changed = db.update(
                         USER_TABLE_NAME,
                         values,
                         PRIMARY_KEY + " = ?",
                         new String[] {Integer.toString(userID)}
                 );
+                success &= changed == 1;
             }
             JSONArray states = user.getJSONArray(UserFragment.LCR_USER_KEY_STATES);
-            boolean success = true;
             for (int i = 0; i < states.length(); ++i) {
                 success &= setState(states.getJSONObject(i), userID);
             }
@@ -173,6 +186,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     joinValues,
                     SQLiteDatabase.CONFLICT_IGNORE
             );
+            JSONArray languages = state.getJSONArray(UserFragment.LCR_STATE_KEY_LANGUAGES);
+            boolean success = true;
+            for (int i = 0; i < languages.length(); ++i) {
+                success &= setLanguage(languages.getJSONObject(i), stateID);
+            }
+            return success;
         } catch (JSONException e) {
             Log.e(LOG_TAG, "could not set state in storage: Unable to decode JSON", e);
             return false;
@@ -180,7 +199,47 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             Log.e(LOG_TAG, "could not set state in storage: Unable to perform SQL query", e);
             return false;
         }
-        return true;
+    }
+
+    private boolean setLanguage(JSONObject language, int state_id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            int languageID = language.getInt(UserFragment.LCR_LANGUAGE_KEY_ID);
+            Cursor existing = db.query(
+                    LANGUAGE_TABLE_NAME,
+                    new String[] {PRIMARY_KEY},
+                    PRIMARY_KEY + " = ?",
+                    new String[] {Integer.toString(languageID)},
+                    null, null, null
+            );
+            ContentValues values = new ContentValues();
+            values.put(STATE_FOREIGN_KEY, state_id);
+            values.put(LANGUAGE_NAME_FIELD, language.getString(UserFragment.LCR_LANGUAGE_KEY_NAME));
+            boolean success = true;
+            if (existing.getCount() == 0) {
+                // This state isn't in storage yet so use insert
+                values.put(PRIMARY_KEY, languageID);
+                Log.d(LOG_TAG, "Adding language: " + languageID + " for state: " + state_id);
+                db.insertOrThrow(LANGUAGE_TABLE_NAME, null, values);
+            } else {
+                // This state already exists in storage, so use update.
+                Log.d(LOG_TAG, "Updating language: " + languageID + " for state: " + state_id);
+                int changed = db.update(
+                        LANGUAGE_TABLE_NAME,
+                        values,
+                        PRIMARY_KEY + " = ?",
+                        new String[] {Integer.toString(languageID)}
+                );
+                success &= changed == 1;
+            }
+            return success;
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "could not set state in storage: Unable to decode JSON", e);
+            return false;
+        } catch (SQLException e) {
+            Log.e(LOG_TAG, "could not set state in storage: Unable to perform SQL query", e);
+            return false;
+        }
     }
 
     /**

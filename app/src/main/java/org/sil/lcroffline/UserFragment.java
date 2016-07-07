@@ -58,17 +58,20 @@ public class UserFragment extends Fragment {
     public static final String LCR_USER_KEY_STATES = "geo_states";
     public static final String LCR_STATE_KEY_ID = "id";
     public static final String LCR_STATE_KEY_NAME = "name";
+    public static final String LCR_STATE_KEY_LANGUAGES = "languages";
+    public static final String LCR_LANGUAGE_KEY_ID = "id";
+    public static final String LCR_LANGUAGE_KEY_NAME = "language_name";
 
     private static final String ARG_NAME = "name";
     private static final String ARG_UPDATED = "name";
 
     private static final int DATA_EXPIRATION_DAYS = 1;
 
-    private String mName;
     private Date mUpdated;
     private String mJWT;
 
-    DatabaseHelper mDBHelper;
+    private DatabaseHelper mDBHelper;
+    private View rootView;
 
     public UserFragment() {
         // Required empty public constructor
@@ -105,7 +108,7 @@ public class UserFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        View rootView = inflater.inflate(R.layout.fragment_user, container, false);
+        rootView = inflater.inflate(R.layout.fragment_user, container, false);
 
         SharedPreferences sharedPref = getContext().getSharedPreferences(
                 getString(R.string.preference_file_key),
@@ -235,8 +238,11 @@ public class UserFragment extends Fragment {
         @Override
         protected void onPostExecute(JSONObject userData) {
             try {
-                mDBHelper.setUser(userData);
-                TextView textView = (TextView) getView().findViewById(R.id.user_name);
+                boolean success = mDBHelper.setUser(userData);
+                if (!success) {
+                    Log.e(LOG_TAG, "something went wrong with storing data about the user.");
+                }
+                TextView textView = (TextView) rootView.findViewById(R.id.user_name);
                 textView.setText(userData.getString("name"));
             } catch (JSONException e) {
                 Log.e(LOG_TAG, "could not decode fetched user data JSON", e);
