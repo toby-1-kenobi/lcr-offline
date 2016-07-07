@@ -1,11 +1,16 @@
 package org.sil.lcroffline;
 
+import android.app.Application;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -18,17 +23,40 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final String LOG_TAG = DatabaseHelper.class.getSimpleName();
 
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 8;
     private static final String DATABASE_NAME = "LCRoffline.db";
+
+    private static final String PRIMARY_KEY = "id";
+
     private static final String USER_TABLE_NAME = "users";
     public static final String USER_PHONE_FIELD = "phone";
     public static final String USER_NAME_FIELD = "name";
     public static final String USER_UPDATED_FIELD = "updated";
     private static final String USER_TABLE_CREATE =
             "CREATE TABLE " + USER_TABLE_NAME + " (" +
-                    USER_PHONE_FIELD + " TEXT PRIMARY KEY, " +
-                    USER_NAME_FIELD + " TEXT, " +
-                    USER_UPDATED_FIELD + " INTEGER);";
+                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    USER_PHONE_FIELD + " TEXT UNIQUE NOT NULL, " +
+                    USER_NAME_FIELD + " TEXT NOT NULL, " +
+                    USER_UPDATED_FIELD + " DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);";
+
+    private static final String STATE_TABLE_NAME = "states";
+    public static final String STATE_NAME_FIELD = "name";
+    private static final String STATE_TABLE_CREATE =
+            "CREATE TABLE " + STATE_TABLE_NAME + " (" +
+                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    STATE_NAME_FIELD + " TEXT UNIQUE NOT NULL);";
+
+    private static final String STATE_USER_JOIN_TABLE_NAME = "states_users";
+    private static final String USER_FOREIGN_KEY = "user_id";
+    private static final String STATE_FOREIGN_KEY = "state_id";
+    private static final String STATE_USER_JOIN_TABLE_CREATE =
+            "CREATE TABLE " + STATE_USER_JOIN_TABLE_NAME + " (" +
+                    STATE_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    USER_FOREIGN_KEY + " INTEGER NOT NULL," +
+                    "PRIMARY KEY (" + STATE_FOREIGN_KEY + ", " + USER_FOREIGN_KEY + ")," +
+                    "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + ")," +
+                    "FOREIGN KEY(" + USER_FOREIGN_KEY + ") REFERENCES " + USER_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    ") WITHOUT ROWID;";
 
     DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -37,12 +65,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(USER_TABLE_CREATE);
+        db.execSQL(STATE_TABLE_CREATE);
+        db.execSQL(STATE_USER_JOIN_TABLE_CREATE);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         Log.w(LOG_TAG, "Upgrading Database. Dropping all data.");
         db.execSQL("DROP TABLE IF EXISTS " + USER_TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + STATE_TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + STATE_USER_JOIN_TABLE_NAME);
         onCreate(db);
     }
 
@@ -50,16 +82,108 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(
                 USER_TABLE_NAME,
-                new String[] {USER_NAME_FIELD, "datetime(" + USER_UPDATED_FIELD + ", 'unixepoch')"},
+                new String[] {PRIMARY_KEY, USER_NAME_FIELD, USER_UPDATED_FIELD},
                 USER_PHONE_FIELD + " = ?",
                 new String[] {phone},
-                null,
-                null,
-                null
+                null, null, null
         );
     }
 
-     /**
+    public boolean setUser(JSONObject user) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            int userID = user.getInt(UserFragment.LCR_USER_KEY_ID);
+            Cursor existing = db.query(
+                    USER_TABLE_NAME,
+                    new String[] {PRIMARY_KEY},
+                    PRIMARY_KEY + " = ?",
+                    new String[] {Integer.toString(userID)},
+                    null, null, null
+            );
+            ContentValues values = new ContentValues();
+            values.put(USER_NAME_FIELD, user.getString(UserFragment.LCR_USER_KEY_NAME));
+            values.put(USER_PHONE_FIELD, user.getString(UserFragment.LCR_USER_KEY_PHONE));
+            if (existing.getCount() == 0) {
+                // This user isn't in storage yet so use insert
+                values.put(PRIMARY_KEY, userID);
+                Log.d(LOG_TAG, "adding user: " + userID);
+                db.insertOrThrow(USER_TABLE_NAME, null, values);
+            } else {
+                // This user already exists in storage, so use update.
+                Log.d(LOG_TAG, "updating user: " + userID);
+                db.update(
+                        USER_TABLE_NAME,
+                        values,
+                        PRIMARY_KEY + " = ?",
+                        new String[] {Integer.toString(userID)}
+                );
+            }
+            JSONArray states = user.getJSONArray(UserFragment.LCR_USER_KEY_STATES);
+            boolean success = true;
+            for (int i = 0; i < states.length(); ++i) {
+                success &= setState(states.getJSONObject(i), userID);
+            }
+            return success;
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "could not set user in storage: Unable to decode JSON", e);
+            return false;
+        } catch (SQLException e) {
+            Log.e(LOG_TAG, "could not set user in storage: Unable to perform SQL query", e);
+            return false;
+        }
+    }
+
+    private boolean setState(JSONObject state, int user_id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            int stateID = state.getInt(UserFragment.LCR_STATE_KEY_ID);
+            Cursor existing = db.query(
+                    STATE_TABLE_NAME,
+                    new String[] {PRIMARY_KEY},
+                    PRIMARY_KEY + " = ?",
+                    new String[] {Integer.toString(stateID)},
+                    null, null, null
+            );
+            ContentValues values = new ContentValues();
+            values.put(STATE_NAME_FIELD, state.getString(UserFragment.LCR_STATE_KEY_NAME));
+            if (existing.getCount() == 0) {
+                // This state isn't in storage yet so use insert
+                values.put(PRIMARY_KEY, stateID);
+                Log.d(LOG_TAG, "Adding state: " + stateID);
+                db.insertOrThrow(STATE_TABLE_NAME, null, values);
+            } else {
+                // This state already exists in storage, so use update.
+                Log.d(LOG_TAG, "Updating state: " + stateID);
+                db.update(
+                        STATE_TABLE_NAME,
+                        values,
+                        PRIMARY_KEY + " = ?",
+                        new String[] {Integer.toString(stateID)}
+                );
+            }
+            // now relate the state to the user
+            ContentValues joinValues = new ContentValues();
+            joinValues.put(STATE_FOREIGN_KEY, stateID);
+            joinValues.put(USER_FOREIGN_KEY, user_id);
+            Log.d(LOG_TAG, "relating state " + stateID + " with user " + user_id);
+            // if the state is already related to the user then nothing will happen (CONFLICT_IGNORE)
+            db.insertWithOnConflict(
+                    STATE_USER_JOIN_TABLE_NAME,
+                    null,
+                    joinValues,
+                    SQLiteDatabase.CONFLICT_IGNORE
+            );
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "could not set state in storage: Unable to decode JSON", e);
+            return false;
+        } catch (SQLException e) {
+            Log.e(LOG_TAG, "could not set state in storage: Unable to perform SQL query", e);
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Get all details from the sqlite_master table in Db.
      *
      * @return An ArrayList of the details.

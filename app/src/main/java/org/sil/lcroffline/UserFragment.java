@@ -2,6 +2,7 @@ package org.sil.lcroffline;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
@@ -16,6 +17,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
@@ -23,11 +25,16 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -42,6 +49,16 @@ public class UserFragment extends Fragment {
 
     private final String LOG_TAG = UserFragment.class.getSimpleName();
 
+
+    // These Strings must correspond to the keys specified in LCR in the :me action of the users controller
+    // https://github.com/toby-1-kenobi/sag_reporter/blob/develop/app/controllers/users_controller.rb
+    public static final String LCR_USER_KEY_ID = "id";
+    public static final String LCR_USER_KEY_NAME = "name";
+    public static final String LCR_USER_KEY_PHONE = "phone";
+    public static final String LCR_USER_KEY_STATES = "geo_states";
+    public static final String LCR_STATE_KEY_ID = "id";
+    public static final String LCR_STATE_KEY_NAME = "name";
+
     private static final String ARG_NAME = "name";
     private static final String ARG_UPDATED = "name";
 
@@ -49,62 +66,38 @@ public class UserFragment extends Fragment {
 
     private String mName;
     private Date mUpdated;
+    private String mJWT;
 
     DatabaseHelper mDBHelper;
 
     public UserFragment() {
         // Required empty public constructor
     }
+
     /**
-     * Parameters are fetched from local storage.
-     * If the values fetched from local storage are not there or not recently updated,
-     * and if there is an Internet connection and a valid JWT
-     * they are fetched from online and updated in local storage
-     *
      * @param savedInstanceState
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mDBHelper = new DatabaseHelper(getContext());
-        SharedPreferences sharedPref = getContext().getSharedPreferences(
-                getString(R.string.preference_file_key),
-                Context.MODE_PRIVATE
-        );
-        if (getArguments() == null) {
-            // get current user phone number from shared preferences
-            String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
-            if (phone != null) {
-                Bundle args =getArgsFromDatabase(phone);
-                if (args != null) setArguments(args);
-            }
-        }
-        if (getArguments() != null) {
-            mName = getArguments().getString(ARG_NAME);
-            SimpleDateFormat dateParser = new SimpleDateFormat();
-            try {
-                mUpdated = dateParser.parse(getArguments().getString(ARG_UPDATED));
-            } catch (ParseException e) {
-                Log.e(LOG_TAG, "Could not parse Updated date for user " + mName, e);
-            }
-        }
-        // if the data is old or missing, update it from online if possible
-        if (mUpdated == null || mUpdated.after(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
-            String token = sharedPref.getString(getString(R.string.jwt_key), null);
-            if (token != null) {
-                FetchUserTask fetchTask = new FetchUserTask();
-                fetchTask.execute(token);
-            }
-        }
     }
 
-    private Bundle getArgsFromDatabase(String phone) {
-        Bundle args = new Bundle();
+    private boolean GetUserFromDatabase(String phone, View rootView) {
         Cursor result = mDBHelper.getUser(phone);
-        if (result.getCount() == 0) return null;
-        args.putString(ARG_NAME, result.getString(result.getColumnIndexOrThrow(DatabaseHelper.USER_NAME_FIELD)));
-        args.putString(ARG_UPDATED, result.getString(result.getColumnIndexOrThrow(DatabaseHelper.USER_UPDATED_FIELD)));
-        return args;
+        if (!result.moveToFirst()) return false; // user not found
+        int name_index, updated_index;
+        try {
+            name_index = result.getColumnIndexOrThrow(DatabaseHelper.USER_NAME_FIELD);
+            updated_index = result.getColumnIndexOrThrow(DatabaseHelper.USER_UPDATED_FIELD);
+        } catch (IllegalArgumentException e) {
+            Log.e(LOG_TAG, "Cannot get user data from db - fields missing in db response.", e);
+            return false;
+        }
+        TextView textView = (TextView) rootView.findViewById(R.id.user_name);
+        textView.setText(result.getString(name_index));
+        mUpdated = Timestamp.valueOf(result.getString(updated_index));
+        return true;
     }
 
 
@@ -112,7 +105,33 @@ public class UserFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_user, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_user, container, false);
+
+        SharedPreferences sharedPref = getContext().getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE
+        );
+        // get current user phone number from shared preferences
+        String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
+        mJWT = sharedPref.getString(getString(R.string.jwt_key), null);
+        if (phone != null) {
+            // use the phone number to fetch more user data from db
+            GetUserFromDatabase(phone, rootView);
+        }
+        return rootView;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Log.d(LOG_TAG, "fragment started");
+        // if the data is old or missing, update it from online if possible
+        if (mUpdated == null || mUpdated.before(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
+            if (mJWT != null) {
+                FetchUserTask fetchTask = new FetchUserTask();
+                fetchTask.execute();
+            }
+        }
     }
 
     public static Date subtractDays(Date date, int days) {
@@ -122,10 +141,11 @@ public class UserFragment extends Fragment {
         return cal.getTime();
     }
 
-    private class FetchUserTask extends AsyncTask<String, Void, JSONObject> {
+    private class FetchUserTask extends AsyncTask<Void, Void, JSONObject> {
 
         @Override
-        protected JSONObject doInBackground(String... params) {// These need to be declared outside the try/catch
+        protected JSONObject doInBackground(Void... params) {
+            // These need to be declared outside the try/catch
             // so that they can be closed in the finally block.
             HttpsURLConnection urlConnection = null;
             BufferedWriter postWriter = null;
@@ -143,7 +163,7 @@ public class UserFragment extends Fragment {
                 // connect to LCR
                 urlConnection = (HttpsURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("GET");
-                urlConnection.setRequestProperty("Authorization", "Bearer " + params[0]);
+                urlConnection.setRequestProperty("Authorization", "Bearer " + mJWT);
                 urlConnection.connect();
 
                 // check the response
@@ -215,7 +235,8 @@ public class UserFragment extends Fragment {
         @Override
         protected void onPostExecute(JSONObject userData) {
             try {
-                TextView textView = (TextView) findViewById(R.id.user_name);
+                mDBHelper.setUser(userData);
+                TextView textView = (TextView) getView().findViewById(R.id.user_name);
                 textView.setText(userData.getString("name"));
             } catch (JSONException e) {
                 Log.e(LOG_TAG, "could not decode fetched user data JSON", e);
