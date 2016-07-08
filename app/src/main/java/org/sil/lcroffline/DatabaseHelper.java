@@ -101,6 +101,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
+    public Cursor getUserStates(String phone){
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(
+                STATE_TABLE_NAME +
+                        " JOIN " + STATE_USER_JOIN_TABLE_NAME +
+                        " ON " + STATE_TABLE_NAME + "." + PRIMARY_KEY +
+                        " = " + STATE_USER_JOIN_TABLE_NAME + "." + STATE_FOREIGN_KEY +
+                        " JOIN " + USER_TABLE_NAME +
+                        " ON " + USER_TABLE_NAME + "." + PRIMARY_KEY +
+                        " = " + STATE_USER_JOIN_TABLE_NAME + "." + USER_FOREIGN_KEY,
+                new String[] {STATE_TABLE_NAME + "." + PRIMARY_KEY + " AS _id", STATE_TABLE_NAME + "." + STATE_NAME_FIELD},
+                USER_PHONE_FIELD + " = ?",
+                new String[] {phone},
+                null, null, null
+        );
+    }
+
     public boolean setUser(JSONObject user) {
         SQLiteDatabase db = this.getWritableDatabase();
         try {
