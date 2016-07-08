@@ -8,19 +8,25 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class ReportActivity extends AppCompatActivity
-        implements AdapterView.OnItemSelectedListener, SelectLanguagesDialogFragment.SelectLanguagesDialogListener {
+        implements AdapterView.OnItemSelectedListener,
+        SelectLanguagesDialogFragment.SelectLanguagesDialogListener,
+        AdapterView.OnItemClickListener {
 
     private final String LOG_TAG = ReportActivity.class.getSimpleName();
     private DatabaseHelper mDBHelper;
 
     // initial value is -1 to show no state has been selected yet
     private long mSelectedStateID = -1;
+    private ArrayAdapter<CharSequence> mLanguagesArray;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +53,17 @@ public class ReportActivity extends AppCompatActivity
         stateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         state_select.setAdapter(stateAdapter);
         state_select.setOnItemSelectedListener(this);
+
+        ArrayList<CharSequence> langArray = new ArrayList<CharSequence>();
+        langArray.add(getString(R.string.pick_languages));
+        mLanguagesArray = new ArrayAdapter<CharSequence>(
+                this,
+                android.R.layout.simple_list_item_1,
+                langArray
+        );
+        ListView languagesList = (ListView) findViewById(R.id.report_languages);
+        languagesList.setAdapter(mLanguagesArray);
+        languagesList.setOnItemClickListener(this);
     }
 
     @Override
@@ -57,7 +74,7 @@ public class ReportActivity extends AppCompatActivity
         // (because that happens in the layout inflation)
         if (mSelectedStateID != -1 && id != mSelectedStateID) {
             DialogFragment selectLanguages = SelectLanguagesDialogFragment.newInstance(id);
-            selectLanguages.show(getSupportFragmentManager(), "select_languages");
+            selectLanguages.show(getSupportFragmentManager(), getString(R.string.languages_dialog_tag));
         }
         mSelectedStateID = id;
     }
@@ -66,11 +83,29 @@ public class ReportActivity extends AppCompatActivity
     public void onNothingSelected(AdapterView<?> parent) {
         Log.d(LOG_TAG, "no states selected");
         // Remove all languages from list
+        mLanguagesArray.clear();
+        mLanguagesArray.add(getString(R.string.pick_languages));
+        mLanguagesArray.notifyDataSetChanged();
     }
 
     @Override
     public void onDialogPositiveClick(CharSequence[] selectedLanguageNames) {
         Log.d(LOG_TAG, "languages selected: " + Arrays.toString(selectedLanguageNames));
         // Add the languages into list
+        mLanguagesArray.clear();
+        if (selectedLanguageNames.length == 0) {
+            mLanguagesArray.add(getString(R.string.pick_languages));
+        } else {
+            for (CharSequence languageName : selectedLanguageNames) {
+                mLanguagesArray.add(languageName);
+            }
+        }
+        mLanguagesArray.notifyDataSetChanged();
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        DialogFragment selectLanguages = SelectLanguagesDialogFragment.newInstance(mSelectedStateID);
+        selectLanguages.show(getSupportFragmentManager(), getString(R.string.languages_dialog_tag));
     }
 }
