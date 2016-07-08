@@ -17,6 +17,7 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="languages_dialog_tag" translatable="false">select_languages</string>
+    <string name="pick_report_date">Report date</string>
 
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>
     <string name="current_user_phone_key" translatable="false">current_user_phone</string>

@@ -1,5 +1,6 @@
 package org.sil.lcroffline;
 
+import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.v4.app.DialogFragment;
@@ -9,17 +10,24 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.DatePicker;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
+import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 
 public class ReportActivity extends AppCompatActivity
         implements AdapterView.OnItemSelectedListener,
         SelectLanguagesDialogFragment.SelectLanguagesDialogListener,
-        AdapterView.OnItemClickListener {
+        AdapterView.OnItemClickListener,
+        View.OnClickListener,
+        DatePickerDialog.OnDateSetListener {
 
     private final String LOG_TAG = ReportActivity.class.getSimpleName();
     private DatabaseHelper mDBHelper;
@@ -64,6 +72,10 @@ public class ReportActivity extends AppCompatActivity
         ListView languagesList = (ListView) findViewById(R.id.report_languages);
         languagesList.setAdapter(mLanguagesArray);
         languagesList.setOnItemClickListener(this);
+
+        TextView dateText = (TextView) findViewById(R.id.report_date);
+        dateText.setOnClickListener(this);
+
     }
 
     @Override
@@ -107,5 +119,19 @@ public class ReportActivity extends AppCompatActivity
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         DialogFragment selectLanguages = SelectLanguagesDialogFragment.newInstance(mSelectedStateID);
         selectLanguages.show(getSupportFragmentManager(), getString(R.string.languages_dialog_tag));
+    }
+
+    @Override
+    public void onClick(View v) {
+        DialogFragment newFragment = new DatePickerFragment();
+        newFragment.show(getSupportFragmentManager(), "datePicker");
+    }
+
+    public void onDateSet(DatePicker view, int year, int month, int day) {
+        TextView dateText = (TextView) findViewById(R.id.report_date);
+        Calendar selectedDate = Calendar.getInstance();
+        selectedDate.set(year, month, day);
+        SimpleDateFormat myDateFormat = new SimpleDateFormat("d MMM yyyy");
+        dateText.setText(myDateFormat.format(selectedDate.getTime()));
     }
 }

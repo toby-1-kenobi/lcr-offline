@@ -24,6 +24,13 @@
             android:layout_height="wrap_content"
             android:id="@+id/report_languages" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/pick_report_date"
+            android:id="@+id/report_date"
+            android:clickable="true" />
+
         <EditText
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
