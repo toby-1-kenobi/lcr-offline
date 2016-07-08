@@ -118,6 +118,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
+    public String[] getLanguageNames(long stateID) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor result = db.query(
+                LANGUAGE_TABLE_NAME,
+                new String[] {LANGUAGE_NAME_FIELD},
+                STATE_FOREIGN_KEY + " = ?",
+                new String[] {Long.toString(stateID)},
+                null, null, null
+        );
+        String[] languageNames = new String[result.getCount()];
+        for (int i = 0; i < languageNames.length; ++i) {
+            result.moveToPosition(i);
+            languageNames[i] = result.getString(0);
+        }
+        return languageNames;
+    }
+
     public boolean setUser(JSONObject user) {
         SQLiteDatabase db = this.getWritableDatabase();
         try {
