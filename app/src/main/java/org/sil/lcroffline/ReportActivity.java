@@ -4,12 +4,14 @@ import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
@@ -76,6 +78,12 @@ public class ReportActivity extends AppCompatActivity
         TextView dateText = (TextView) findViewById(R.id.report_date);
         dateText.setOnClickListener(this);
 
+        Button cancelButton = (Button) findViewById(R.id.cancel_button);
+        cancelButton.setOnClickListener(this);
+
+        Button okButton = (Button) findViewById(R.id.ok_button);
+        okButton.setOnClickListener(this);
+
     }
 
     @Override
@@ -123,8 +131,16 @@ public class ReportActivity extends AppCompatActivity
 
     @Override
     public void onClick(View v) {
-        DialogFragment newFragment = new DatePickerFragment();
-        newFragment.show(getSupportFragmentManager(), "datePicker");
+        if (v == findViewById(R.id.report_date)) {
+            DialogFragment newFragment = new DatePickerFragment();
+            newFragment.show(getSupportFragmentManager(), "datePicker");
+        } else if (v == findViewById(R.id.cancel_button)) {
+            Log.d(LOG_TAG, "cancel button clicked");
+            finish();
+        } else if (v == findViewById(R.id.ok_button)) {
+            Log.d(LOG_TAG, "OK button clicked");
+            finish();
+        }
     }
 
     public void onDateSet(DatePicker view, int year, int month, int day) {
