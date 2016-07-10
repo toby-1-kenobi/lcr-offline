@@ -17,7 +17,11 @@ import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import org.w3c.dom.Text;
+
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +37,8 @@ public class ReportActivity extends AppCompatActivity
 
     private final String LOG_TAG = ReportActivity.class.getSimpleName();
     private DatabaseHelper mDBHelper;
+
+    private SimpleDateFormat myDateFormat = new SimpleDateFormat("d MMM yyyy");
 
     // initial value is -1 to show no state has been selected yet
     private long mSelectedStateID = -1;
@@ -139,7 +145,44 @@ public class ReportActivity extends AppCompatActivity
             finish();
         } else if (v == findViewById(R.id.ok_button)) {
             Log.d(LOG_TAG, "OK button clicked");
-            finish();
+            SharedPreferences sharedPref = getApplicationContext().getSharedPreferences(
+                    getString(R.string.preference_file_key),
+                    Context.MODE_PRIVATE
+            );
+            // get current user id number from shared preferences
+            long userID = sharedPref.getLong(getString(R.string.current_user_id_key), -1);
+            if (userID == -1) {
+                Log.e(LOG_TAG, "Report not saved: Could not get current user ID from shared pref.");
+                Toast.makeText(getApplicationContext(), "Report not saved - User unknown", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // get language names from the list
+            CharSequence[] languageNames = new CharSequence[mLanguagesArray.getCount()];
+            for (int i = 0; i < mLanguagesArray.getCount(); ++i) {
+                languageNames[i] = mLanguagesArray.getItem(i);
+            }
+            if (languageNames.length == 0 || getString(R.string.pick_languages).contentEquals(languageNames[0])) {
+                Log.d(LOG_TAG, "Report not saved: No languages found in list.");
+                Toast.makeText(getApplicationContext(), "Report not saved - needs languages", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            TextView contentView = (TextView) findViewById(R.id.report_content);
+            if (contentView.getText().equals("")) {
+                Log.d(LOG_TAG, "Report not saved: No content.");
+                Toast.makeText(getApplicationContext(), "Report not saved - needs content", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            TextView dateView = (TextView) findViewById(R.id.report_date);
+            Date reportDate = null;
+            try {
+                reportDate = myDateFormat.parse(dateView.getText().toString());
+                mDBHelper.createReport(userID, mSelectedStateID, languageNames, reportDate, contentView.getText());
+                finish();
+            } catch (ParseException e) {
+                Log.d(LOG_TAG, "Report not saved: could not parse date: " + dateView.getText());
+                Toast.makeText(getApplicationContext(), "Report not saved - date problem", Toast.LENGTH_SHORT).show();
+            }
+
         }
     }
 
@@ -147,7 +190,6 @@ public class ReportActivity extends AppCompatActivity
         TextView dateText = (TextView) findViewById(R.id.report_date);
         Calendar selectedDate = Calendar.getInstance();
         selectedDate.set(year, month, day);
-        SimpleDateFormat myDateFormat = new SimpleDateFormat("d MMM yyyy");
         dateText.setText(myDateFormat.format(selectedDate.getTime()));
     }
 }

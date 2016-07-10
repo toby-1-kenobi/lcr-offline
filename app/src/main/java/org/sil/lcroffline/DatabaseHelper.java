@@ -14,7 +14,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Date;
 
 /**
  * Created by toby on 4/07/16.
@@ -23,10 +23,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final String LOG_TAG = DatabaseHelper.class.getSimpleName();
 
-    private static final int DATABASE_VERSION = 9;
+    private static final int DATABASE_VERSION = 10;
     private static final String DATABASE_NAME = "LCRoffline.db";
 
-    private static final String PRIMARY_KEY = "id";
+    public static final String PRIMARY_KEY = "id";
 
     private static final String USER_TABLE_NAME = "users";
     public static final String USER_PHONE_FIELD = "phone";
@@ -52,9 +52,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String STATE_USER_JOIN_TABLE_CREATE =
             "CREATE TABLE " + STATE_USER_JOIN_TABLE_NAME + " (" +
                     STATE_FOREIGN_KEY + " INTEGER NOT NULL, " +
-                    USER_FOREIGN_KEY + " INTEGER NOT NULL," +
-                    "PRIMARY KEY (" + STATE_FOREIGN_KEY + ", " + USER_FOREIGN_KEY + ")," +
-                    "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + ")," +
+                    USER_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    "PRIMARY KEY (" + STATE_FOREIGN_KEY + ", " + USER_FOREIGN_KEY + "), " +
+                    "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + "), " +
                     "FOREIGN KEY(" + USER_FOREIGN_KEY + ") REFERENCES " + USER_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
                     ") WITHOUT ROWID;";
 
@@ -64,9 +64,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             "CREATE TABLE " + LANGUAGE_TABLE_NAME + " (" +
                     PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
                     STATE_FOREIGN_KEY + " INTEGER NOT NULL, " +
-                    LANGUAGE_NAME_FIELD + " TEXT NOT NULL," +
+                    LANGUAGE_NAME_FIELD + " TEXT NOT NULL, " +
                     "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
                     ");";
+
+    private static final String REPORT_TABLE_NAME = "reports";
+    public static final String REPORT_DATE_FIELD = "date";
+    public static final String REPORT_CONTENT_FIELD = "content";
+    public static final String REPORT_LCR_ID_FIELD = "id_lcr";
+    public static final String REPORT_FAIL_MSG_FIELD = "fail_message";
+    private static final String REPORT_TABLE_CREATE =
+            "CREATE TABLE " + REPORT_TABLE_NAME + " (" +
+                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    USER_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    REPORT_DATE_FIELD + " DATE, " +
+                    REPORT_CONTENT_FIELD + " TEXT NOT NULL, " +
+                    REPORT_LCR_ID_FIELD + " INTEGER UNIQUE, " +
+                    REPORT_FAIL_MSG_FIELD + " TEXT, " +
+                    "FOREIGN KEY(" + USER_FOREIGN_KEY + ") REFERENCES " + USER_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    ");";
+
+    private static final String LANGUAGE_REPORT_JOIN_TABLE_NAME = "languages_reports";
+    private static final String REPORT_FOREIGN_KEY = "Report_id";
+    private static final String LANGUAGE_FOREIGN_KEY = "Language_id";
+    private static final String LANGUAGE_REPORT_JOIN_TABLE_CREATE =
+            "CREATE TABLE " + LANGUAGE_REPORT_JOIN_TABLE_NAME + " (" +
+                    LANGUAGE_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    REPORT_FOREIGN_KEY + " INTEGER NOT NULL, " +
+                    "PRIMARY KEY (" + LANGUAGE_FOREIGN_KEY + ", " + REPORT_FOREIGN_KEY + "), " +
+                    "FOREIGN KEY(" + LANGUAGE_FOREIGN_KEY + ") REFERENCES " + LANGUAGE_TABLE_NAME + "(" + PRIMARY_KEY + "), " +
+                    "FOREIGN KEY(" + REPORT_FOREIGN_KEY + ") REFERENCES " + REPORT_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    ") WITHOUT ROWID;";
 
     DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -78,6 +106,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(STATE_TABLE_CREATE);
         db.execSQL(STATE_USER_JOIN_TABLE_CREATE);
         db.execSQL(LANGUAGE_TABLE_CREATE);
+        db.execSQL(REPORT_TABLE_CREATE);
+        db.execSQL(LANGUAGE_REPORT_JOIN_TABLE_CREATE);
     }
 
     @Override
@@ -87,6 +117,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + STATE_TABLE_NAME);
         db.execSQL("DROP TABLE IF EXISTS " + STATE_USER_JOIN_TABLE_NAME);
         db.execSQL("DROP TABLE IF EXISTS " + LANGUAGE_TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + REPORT_TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + LANGUAGE_REPORT_JOIN_TABLE_NAME);
         onCreate(db);
     }
 
@@ -132,6 +164,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             result.moveToPosition(i);
             languageNames[i] = result.getString(0);
         }
+        result.close();
         return languageNames;
     }
 
@@ -164,8 +197,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         PRIMARY_KEY + " = ?",
                         new String[] {Integer.toString(userID)}
                 );
-                success &= changed == 1;
+                success = changed == 1;
             }
+            existing.close();
             JSONArray states = user.getJSONArray(UserFragment.LCR_USER_KEY_STATES);
             for (int i = 0; i < states.length(); ++i) {
                 success &= setState(states.getJSONObject(i), userID);
@@ -208,6 +242,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         new String[] {Integer.toString(stateID)}
                 );
             }
+            existing.close();
             // now relate the state to the user
             ContentValues joinValues = new ContentValues();
             joinValues.put(STATE_FOREIGN_KEY, stateID);
@@ -264,8 +299,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         PRIMARY_KEY + " = ?",
                         new String[] {Integer.toString(languageID)}
                 );
-                success &= changed == 1;
+                success = changed == 1;
             }
+            existing.close();
             return success;
         } catch (JSONException e) {
             Log.e(LOG_TAG, "could not set state in storage: Unable to decode JSON", e);
@@ -276,6 +312,56 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    public boolean createReport(
+            long userID,
+            long stateID,
+            CharSequence[] languageNames,
+            Date reportDate,
+            CharSequence reportContent) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(USER_FOREIGN_KEY, userID);
+        values.put(REPORT_DATE_FIELD, reportDate.getTime());
+        values.put(REPORT_CONTENT_FIELD, reportContent.toString());
+        long reportID = db.insert(REPORT_TABLE_NAME, null, values);
+        if (reportID == -1) {
+            Log.e(LOG_TAG, "Failed to save report");
+            return false;
+        } else {
+            Log.d(LOG_TAG, "report saved with id " + reportID);
+        }
+
+        boolean success = true;
+        for (CharSequence languageName : languageNames) {
+            success &= addLanguageToReport(db, reportID, stateID, languageName);
+        }
+        return success;
+    }
+
+    private boolean addLanguageToReport(SQLiteDatabase db, long reportID, long stateID, CharSequence languageName) {
+        Cursor result = db.query(
+                LANGUAGE_TABLE_NAME,
+                new String[] {PRIMARY_KEY},
+                STATE_FOREIGN_KEY + " = ? AND " + LANGUAGE_NAME_FIELD + " = ?",
+                new String[] {Long.toString(stateID), languageName.toString()},
+                null, null, null
+        );
+        if (result.getCount() != 1) {
+            Log.e(LOG_TAG, "Looking for language " + languageName + " in state " + stateID + " returned " + result.getCount() + " results.");
+            return false;
+        }
+        result.moveToFirst();
+        long languageID = result.getLong(0);
+        result.close();
+        ContentValues values = new ContentValues();
+        values.put(REPORT_FOREIGN_KEY, reportID);
+        values.put(LANGUAGE_FOREIGN_KEY, languageID);
+        Log.d(LOG_TAG, "adding to report " + reportID + " language " + languageID + " (" + languageName + ")");
+        long rowID = db.insertWithOnConflict(LANGUAGE_REPORT_JOIN_TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+        return rowID != -1;
+    }
+
+
     /**
      * Get all details from the sqlite_master table in Db.
      *
@@ -285,15 +371,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor c = db.rawQuery(
                 "SELECT * FROM sqlite_master", null);
         ArrayList<String[]> result = new ArrayList<String[]>();
-        int i = 0;
         result.add(c.getColumnNames());
         for (c.moveToFirst(); !c.isAfterLast(); c.moveToNext()) {
             String[] temp = new String[c.getColumnCount()];
-            for (i = 0; i < temp.length; i++) {
+            for (int i = 0; i < temp.length; i++) {
                 temp[i] = c.getString(i);
             }
             result.add(temp);
         }
+        c.close();
 
         return result;
     }

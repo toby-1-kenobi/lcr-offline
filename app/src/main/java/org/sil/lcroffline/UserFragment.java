@@ -1,8 +1,6 @@
 package org.sil.lcroffline;
 
-import android.app.Application;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
@@ -15,26 +13,18 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.sql.Timestamp;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
 import android.widget.TextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -86,21 +76,22 @@ public class UserFragment extends Fragment {
         mDBHelper = new DatabaseHelper(getContext());
     }
 
-    private boolean GetUserFromDatabase(String phone, View rootView) {
+    private long GetUserFromDatabase(String phone, View rootView) {
         Cursor result = mDBHelper.getUser(phone);
-        if (!result.moveToFirst()) return false; // user not found
-        int name_index, updated_index;
+        if (!result.moveToFirst()) return -1; // user not found
+        int idIndex, nameIndex, updatedIndex;
         try {
-            name_index = result.getColumnIndexOrThrow(DatabaseHelper.USER_NAME_FIELD);
-            updated_index = result.getColumnIndexOrThrow(DatabaseHelper.USER_UPDATED_FIELD);
+            idIndex = result.getColumnIndexOrThrow(DatabaseHelper.PRIMARY_KEY);
+            nameIndex = result.getColumnIndexOrThrow(DatabaseHelper.USER_NAME_FIELD);
+            updatedIndex = result.getColumnIndexOrThrow(DatabaseHelper.USER_UPDATED_FIELD);
         } catch (IllegalArgumentException e) {
             Log.e(LOG_TAG, "Cannot get user data from db - fields missing in db response.", e);
-            return false;
+            return -1;
         }
         TextView textView = (TextView) rootView.findViewById(R.id.user_name);
-        textView.setText(result.getString(name_index));
-        mUpdated = Timestamp.valueOf(result.getString(updated_index));
-        return true;
+        textView.setText(result.getString(nameIndex));
+        mUpdated = Timestamp.valueOf(result.getString(updatedIndex));
+        return result.getLong(idIndex);
     }
 
 
@@ -119,7 +110,16 @@ public class UserFragment extends Fragment {
         mJWT = sharedPref.getString(getString(R.string.jwt_key), null);
         if (phone != null) {
             // use the phone number to fetch more user data from db
-            GetUserFromDatabase(phone, rootView);
+            long userId = GetUserFromDatabase(phone, rootView);
+            if (userId == -1) {
+                Log.d(LOG_TAG, "could not retrieve user fom db with phone " + phone);
+            } else {
+                // and save the user id to shared pref
+                sharedPref
+                        .edit()
+                        .putLong(getString(R.string.current_user_id_key), userId)
+                        .apply();
+            }
         }
         return rootView;
     }
@@ -242,6 +242,15 @@ public class UserFragment extends Fragment {
                 if (!success) {
                     Log.e(LOG_TAG, "something went wrong with storing data about the user.");
                 }
+                int userID = userData.getInt(UserFragment.LCR_USER_KEY_ID);
+                SharedPreferences sharedPref = getContext().getSharedPreferences(
+                        getString(R.string.preference_file_key),
+                        Context.MODE_PRIVATE
+                );
+                sharedPref
+                        .edit()
+                        .putLong(getString(R.string.current_user_id_key), userID)
+                        .apply();
                 TextView textView = (TextView) rootView.findViewById(R.id.user_name);
                 textView.setText(userData.getString("name"));
             } catch (JSONException e) {

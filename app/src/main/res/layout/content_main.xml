@@ -12,12 +12,33 @@
     tools:context="org.sil.lcroffline.MainActivity"
     tools:showIn="@layout/activity_main">
 
-    <fragment
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:name="org.sil.lcroffline.UserFragment"
-        android:id="@+id/fragment"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        tools:layout="@layout/fragment_user" />
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <fragment
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:name="org.sil.lcroffline.UserFragment"
+            android:id="@+id/fragment"
+            tools:layout="@layout/fragment_user"
+            android:layout_weight="0.5" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/queued_msg"
+            android:layout_weight="0.7" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/uploaded_msg"
+            android:layout_weight="0.7" />
+
+    </LinearLayout>
+
 </RelativeLayout>

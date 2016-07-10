@@ -21,6 +21,7 @@
 
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>
     <string name="current_user_phone_key" translatable="false">current_user_phone</string>
+    <string name="current_user_id_key" translatable="false">current_user_id</string>
     <string name="jwt_key" translatable="false">jwt</string>
     <string name="user_cred_preference_file_key" translatable="false">org.sil.lcroffline.USER_CRED_PREF_FILE</string>
     <string name="password_is_hashed_key" translatable="false">_password_is_hashed</string>
