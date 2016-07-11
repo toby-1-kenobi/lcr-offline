@@ -10,6 +10,8 @@ import android.view.View;
 
 public class MainActivity extends AppCompatActivity {
 
+    static final int NEW_REPORT_REQUEST = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -22,9 +24,21 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent reportIntent = new Intent(getApplicationContext(), ReportActivity.class);
-                startActivity(reportIntent);
+                startActivityForResult(reportIntent, NEW_REPORT_REQUEST);
             }
         });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == NEW_REPORT_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                ReportManagerFragment reportManager =
+                        (ReportManagerFragment) getSupportFragmentManager().
+                                findFragmentById(R.id.report_manager_fragment);
+                reportManager.incrementQueuedReports();
+            }
+        }
     }
 
 }

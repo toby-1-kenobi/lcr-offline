@@ -52,9 +52,6 @@ public class UserFragment extends Fragment {
     public static final String LCR_LANGUAGE_KEY_ID = "id";
     public static final String LCR_LANGUAGE_KEY_NAME = "language_name";
 
-    private static final String ARG_NAME = "name";
-    private static final String ARG_UPDATED = "name";
-
     private static final int DATA_EXPIRATION_DAYS = 1;
 
     private Date mUpdated;
@@ -67,9 +64,6 @@ public class UserFragment extends Fragment {
         // Required empty public constructor
     }
 
-    /**
-     * @param savedInstanceState
-     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

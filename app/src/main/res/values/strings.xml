@@ -13,6 +13,10 @@
 
     <string name="title_activity_main">LCR Offline</string>
 
+    <string name="queued_message">Reports queued for upload:</string>
+    <string name="uploaded_message">Reports uploaded:</string>
+    <string name="failed_message">Reports failed upload:</string>
+
     <string name="pick_languages">Select language(s)</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
@@ -25,5 +29,8 @@
     <string name="jwt_key" translatable="false">jwt</string>
     <string name="user_cred_preference_file_key" translatable="false">org.sil.lcroffline.USER_CRED_PREF_FILE</string>
     <string name="password_is_hashed_key" translatable="false">_password_is_hashed</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 
 </resources>

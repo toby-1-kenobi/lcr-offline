@@ -142,6 +142,7 @@ public class ReportActivity extends AppCompatActivity
             newFragment.show(getSupportFragmentManager(), "datePicker");
         } else if (v == findViewById(R.id.cancel_button)) {
             Log.d(LOG_TAG, "cancel button clicked");
+            setResult(RESULT_CANCELED);
             finish();
         } else if (v == findViewById(R.id.ok_button)) {
             Log.d(LOG_TAG, "OK button clicked");
@@ -167,7 +168,7 @@ public class ReportActivity extends AppCompatActivity
                 return;
             }
             TextView contentView = (TextView) findViewById(R.id.report_content);
-            if (contentView.getText().equals("")) {
+            if (contentView.getText().length() == 0) {
                 Log.d(LOG_TAG, "Report not saved: No content.");
                 Toast.makeText(getApplicationContext(), "Report not saved - needs content", Toast.LENGTH_SHORT).show();
                 return;
@@ -177,6 +178,7 @@ public class ReportActivity extends AppCompatActivity
             try {
                 reportDate = myDateFormat.parse(dateView.getText().toString());
                 mDBHelper.createReport(userID, mSelectedStateID, languageNames, reportDate, contentView.getText());
+                setResult(RESULT_OK);
                 finish();
             } catch (ParseException e) {
                 Log.d(LOG_TAG, "Report not saved: could not parse date: " + dateView.getText());

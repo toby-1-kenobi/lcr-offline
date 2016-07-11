@@ -19,25 +19,16 @@
 
         <fragment
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:name="org.sil.lcroffline.UserFragment"
-            android:id="@+id/fragment"
-            tools:layout="@layout/fragment_user"
-            android:layout_weight="0.5" />
+            android:id="@+id/user_fragment"
+            tools:layout="@layout/fragment_user" />
 
-        <TextView
+        <fragment
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceLarge"
-            android:id="@+id/queued_msg"
-            android:layout_weight="0.7" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceLarge"
-            android:id="@+id/uploaded_msg"
-            android:layout_weight="0.7" />
+            android:name="org.sil.lcroffline.ReportManagerFragment"
+            android:id="@+id/report_manager_fragment" />
 
     </LinearLayout>
 

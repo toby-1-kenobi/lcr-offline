@@ -168,6 +168,33 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return languageNames;
     }
 
+    public Cursor getQueuedReports(long userID) {
+        Log.d(LOG_TAG, "getting queued reports for user " + userID);
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(
+                REPORT_TABLE_NAME,
+                new String[] {REPORT_DATE_FIELD, REPORT_CONTENT_FIELD},
+                USER_FOREIGN_KEY + " = ? AND " +
+                        REPORT_LCR_ID_FIELD + " IS NULL AND " +
+                        REPORT_FAIL_MSG_FIELD + " IS NULL",
+                new String[] {Long.toString(userID)},
+                null, null, null
+        );
+    }
+
+    public Cursor getUploadedReports(long userID) {
+        Log.d(LOG_TAG, "getting queued reports for user " + userID);
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(
+                REPORT_TABLE_NAME,
+                new String[] {REPORT_DATE_FIELD, REPORT_CONTENT_FIELD},
+                USER_FOREIGN_KEY + " = ? AND " +
+                        REPORT_LCR_ID_FIELD + " IS NOT NULL",
+                new String[] {Long.toString(userID)},
+                null, null, null
+        );
+    }
+
     public boolean setUser(JSONObject user) {
         SQLiteDatabase db = this.getWritableDatabase();
         try {
@@ -328,7 +355,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             Log.e(LOG_TAG, "Failed to save report");
             return false;
         } else {
-            Log.d(LOG_TAG, "report saved with id " + reportID);
+            Log.d(LOG_TAG, "report saved with id " + reportID + " for user " + userID);
         }
 
         boolean success = true;
