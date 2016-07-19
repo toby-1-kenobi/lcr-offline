@@ -3,6 +3,8 @@ package org.sil.lcroffline;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -123,12 +125,21 @@ public class UserFragment extends Fragment {
         super.onStart();
         Log.d(LOG_TAG, "fragment started");
         // if the data is old or missing, update it from online if possible
-        if (mUpdated == null || mUpdated.before(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
-            if (mJWT != null) {
-                FetchUserTask fetchTask = new FetchUserTask();
-                fetchTask.execute();
+        if (isNetworkAvailable()) {
+            if (mUpdated == null || mUpdated.before(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
+                if (mJWT != null) {
+                    FetchUserTask fetchTask = new FetchUserTask();
+                    fetchTask.execute();
+                }
             }
         }
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
     public static Date subtractDays(Date date, int days) {

@@ -19,13 +19,13 @@
 
         <fragment
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:name="org.sil.lcroffline.UserFragment"
             android:id="@+id/user_fragment"
             tools:layout="@layout/fragment_user" />
 
         <fragment
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:name="org.sil.lcroffline.ReportManagerFragment"
             android:id="@+id/report_manager_fragment" />

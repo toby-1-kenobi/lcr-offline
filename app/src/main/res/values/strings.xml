@@ -23,6 +23,7 @@
     <string name="languages_dialog_tag" translatable="false">select_languages</string>
     <string name="pick_report_date">Report date</string>
 
+    <!-- Strings pertaining to storing data to and retrieving data from shared preferences -->
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>
     <string name="current_user_phone_key" translatable="false">current_user_phone</string>
     <string name="current_user_id_key" translatable="false">current_user_id</string>
@@ -30,7 +31,17 @@
     <string name="user_cred_preference_file_key" translatable="false">org.sil.lcroffline.USER_CRED_PREF_FILE</string>
     <string name="password_is_hashed_key" translatable="false">_password_is_hashed</string>
 
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <!-- Strings that should match LCR values -->
+    <string name="LCR_report_key" translatable="false">report</string>
+    <string name="LCR_report_state_key" translatable="false">geo_state_id</string>
+    <string name="LCR_report_date_key" translatable="false">report_date</string>
+    <string name="LCR_report_content_key" translatable="false">content</string>
+    <string name="LCR_report_impact_key" translatable="false">impact_report</string>
+    <string name="LCR_report_languages_key" translatable="false">languages</string>
+    <string name="LCR_report_client_key" translatable="false">client</string>
+    <string name="LCR_report_version_key" translatable="false">version</string>
+    <string name="LCR_response_success_key" translatable="false">success</string>
+    <string name="LCR_response_report_id_key" translatable="false">report_id</string>
+    <string name="LCR_response_errors_key" translatable="false">errors</string>
 
 </resources>

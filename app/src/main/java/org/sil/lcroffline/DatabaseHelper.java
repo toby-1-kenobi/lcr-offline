@@ -23,7 +23,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final String LOG_TAG = DatabaseHelper.class.getSimpleName();
 
-    private static final int DATABASE_VERSION = 10;
+    private static final int DATABASE_VERSION = 11;
     private static final String DATABASE_NAME = "LCRoffline.db";
 
     public static final String PRIMARY_KEY = "id";
@@ -56,7 +56,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "PRIMARY KEY (" + STATE_FOREIGN_KEY + ", " + USER_FOREIGN_KEY + "), " +
                     "FOREIGN KEY(" + STATE_FOREIGN_KEY + ") REFERENCES " + STATE_TABLE_NAME + "(" + PRIMARY_KEY + "), " +
                     "FOREIGN KEY(" + USER_FOREIGN_KEY + ") REFERENCES " + USER_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
-                    ") WITHOUT ROWID;";
+                    ");";
 
     private static final String LANGUAGE_TABLE_NAME = "languages";
     public static final String LANGUAGE_NAME_FIELD = "name";
@@ -94,7 +94,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "PRIMARY KEY (" + LANGUAGE_FOREIGN_KEY + ", " + REPORT_FOREIGN_KEY + "), " +
                     "FOREIGN KEY(" + LANGUAGE_FOREIGN_KEY + ") REFERENCES " + LANGUAGE_TABLE_NAME + "(" + PRIMARY_KEY + "), " +
                     "FOREIGN KEY(" + REPORT_FOREIGN_KEY + ") REFERENCES " + REPORT_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
-                    ") WITHOUT ROWID;";
+                    ");";
 
     DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -173,7 +173,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(
                 REPORT_TABLE_NAME,
-                new String[] {REPORT_DATE_FIELD, REPORT_CONTENT_FIELD},
+                new String[] {PRIMARY_KEY, REPORT_DATE_FIELD, REPORT_CONTENT_FIELD},
                 USER_FOREIGN_KEY + " = ? AND " +
                         REPORT_LCR_ID_FIELD + " IS NULL AND " +
                         REPORT_FAIL_MSG_FIELD + " IS NULL",
@@ -193,6 +193,44 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[] {Long.toString(userID)},
                 null, null, null
         );
+    }
+
+    public long[] getReportLanguages(long reportID) {
+        Log.d(LOG_TAG, "getting languages for report " + reportID);
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor result = db.query(
+                LANGUAGE_REPORT_JOIN_TABLE_NAME,
+                new String[] {LANGUAGE_FOREIGN_KEY},
+                REPORT_FOREIGN_KEY + " = ?",
+                new String[] {Long.toString(reportID)},
+                null, null, null
+        );
+        long[] languages = new long[result.getCount()];
+        if (result.moveToFirst()) {
+            int i = 0;
+            while (!result.isAfterLast()) {
+                languages[i] = result.getLong(0);
+                result.moveToNext();
+            }
+        }
+        return languages;
+    }
+
+    public long getLanguageState(long languageID) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor result = db.query(
+                LANGUAGE_TABLE_NAME,
+                new String[] {STATE_FOREIGN_KEY},
+                PRIMARY_KEY + " = ?",
+                new String[] {Long.toString(languageID)},
+                null, null, null
+        );
+        if (result.moveToFirst()) {
+            return result.getLong(0);
+        } else {
+            Log.e(LOG_TAG, "no corresponding state for language with id " + languageID);
+            return -1;
+        }
     }
 
     public boolean setUser(JSONObject user) {
@@ -386,6 +424,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Log.d(LOG_TAG, "adding to report " + reportID + " language " + languageID + " (" + languageName + ")");
         long rowID = db.insertWithOnConflict(LANGUAGE_REPORT_JOIN_TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_IGNORE);
         return rowID != -1;
+    }
+
+    public void addLCRidToReport(long localID, int LCRid) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(REPORT_LCR_ID_FIELD, LCRid);
+        Log.d(LOG_TAG, "setting report " + localID + "to have LCR ID " + LCRid);
+        db.update(
+                REPORT_TABLE_NAME,
+                values,
+                PRIMARY_KEY + " = ?",
+                new String[] {String.valueOf(localID)}
+        );
     }
 
 
