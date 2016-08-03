@@ -30,10 +30,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URL;
-import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -41,11 +39,11 @@ import javax.net.ssl.HttpsURLConnection;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class ReportManagerFragment extends Fragment {
+public class ReportManagerFragment extends Fragment implements UserFragment.UserDataListener {
 
     private final String LOG_TAG = ReportManagerFragment.class.getSimpleName();
 
-    private long userID;
+    private long mUserID;
 
     private DatabaseHelper mDBHelper;
     private View mRootView;
@@ -72,9 +70,16 @@ public class ReportManagerFragment extends Fragment {
                 getString(R.string.preference_file_key),
                 Context.MODE_PRIVATE
         );
+
+        // listen to the user fragment for changes in the user data if possible
+        UserFragment userFragment = (UserFragment) getFragmentManager().findFragmentByTag(getString(R.string.user_fragment_tag));
+        if (userFragment != null) {
+            userFragment.addUserDataListener(this);
+        }
+
         // get current user id from shared preferences
-        userID = sharedPref.getLong(getString(R.string.current_user_id_key), -1);
-        if (userID == -1) {
+        mUserID = sharedPref.getLong(getString(R.string.current_user_id_key), -1);
+        if (mUserID == -1) {
             Log.e(LOG_TAG, "could not get user id from shared preferences.");
         } else {
             countReports();
@@ -82,15 +87,22 @@ public class ReportManagerFragment extends Fragment {
         return mRootView;
     }
 
+    @Override
+    public void userUpdated(long userID) {
+        mUserID = userID;
+        countReports();
+        pushReportsToLCR();
+    }
+
     private void countReports() {
 
-        Cursor queued = mDBHelper.getQueuedReports(userID);
+        Cursor queued = mDBHelper.getQueuedReports(mUserID);
         Log.d(LOG_TAG, queued.getCount() + " queued reports.");
         TextView queuedCountView = (TextView) mRootView.findViewById(R.id.queued_count);
         int queuedCount = queued.getCount();
         queuedCountView.setText(String.valueOf(queuedCount));
 
-        Cursor uploaded = mDBHelper.getUploadedReports(userID);
+        Cursor uploaded = mDBHelper.getUploadedReports(mUserID);
         Log.d(LOG_TAG, uploaded.getCount() + " uploaded reports.");
         TextView uploadedCount = (TextView) mRootView.findViewById(R.id.uploaded_count);
         uploadedCount.setText(String.valueOf(uploaded.getCount()));
@@ -101,18 +113,19 @@ public class ReportManagerFragment extends Fragment {
     public void onStart() {
         super.onStart();
         Log.d(LOG_TAG, "fragment started");
-        // if the data is old or missing, update it from online if possible
-        if (isNetworkAvailable()) {
-            pushReportsToLCR();
-        }
+        pushReportsToLCR();
     }
 
     private void pushReportsToLCR() {
-        Cursor queued = mDBHelper.getQueuedReports(userID);
-        LongSparseArray<JSONObject> reports = buildJSONReports(queued);
-        Log.d(LOG_TAG, "reports JSON built");
-        ReportUploadTask uploadTask = new ReportUploadTask(reports);
-        uploadTask.execute((Void) null);
+        if (mUserID >= 0 && isNetworkAvailable()) {
+            Cursor queued = mDBHelper.getQueuedReports(mUserID);
+            LongSparseArray<JSONObject> reports = buildJSONReports(queued);
+            Log.d(LOG_TAG, "reports JSON built");
+            if (reports.size() > 0) {
+                ReportUploadTask uploadTask = new ReportUploadTask(reports);
+                uploadTask.execute((Void) null);
+            }
+        }
     }
 
     private LongSparseArray<JSONObject> buildJSONReports(Cursor dbReports) {

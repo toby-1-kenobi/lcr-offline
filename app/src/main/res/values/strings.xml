@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">LCR Offline</string>
+    <string name="app_name">LCIR Offline</string>
 
     <!-- Strings related to login -->
     <string name="prompt_phone">Phone number</string>
@@ -11,7 +11,7 @@
     <string name="error_field_required">This field is required</string>
     <string name="connection_required">An Internet connection is required for first time login.</string>
 
-    <string name="title_activity_main">LCR Offline</string>
+    <string name="title_activity_main">LCIR Offline</string>
 
     <string name="queued_message">Reports queued for upload:</string>
     <string name="uploaded_message">Reports uploaded:</string>
@@ -22,6 +22,8 @@
     <string name="cancel">Cancel</string>
     <string name="languages_dialog_tag" translatable="false">select_languages</string>
     <string name="pick_report_date">Report date</string>
+
+    <string name="user_fragment_tag" translatable="false">user_fragment</string>
 
     <!-- Strings pertaining to storing data to and retrieving data from shared preferences -->
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>

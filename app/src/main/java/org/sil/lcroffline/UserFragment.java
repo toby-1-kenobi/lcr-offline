@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.sql.Timestamp;
 
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -27,8 +26,11 @@ import android.widget.TextView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -62,8 +64,19 @@ public class UserFragment extends Fragment {
     private DatabaseHelper mDBHelper;
     private View rootView;
 
+    private List<UserDataListener> userDataListeners = new ArrayList<UserDataListener>();
+
     public UserFragment() {
         // Required empty public constructor
+    }
+
+    public interface UserDataListener {
+        public void userUpdated(long userID);
+    }
+
+    public void addUserDataListener(UserDataListener listener) {
+        userDataListeners.add(listener);
+        Log.d(LOG_TAG, "Got user data listener");
     }
 
     @Override
@@ -86,7 +99,11 @@ public class UserFragment extends Fragment {
         }
         TextView textView = (TextView) rootView.findViewById(R.id.user_name);
         textView.setText(result.getString(nameIndex));
-        mUpdated = Timestamp.valueOf(result.getString(updatedIndex));
+        try {
+            mUpdated = DatabaseHelper.SQLITE_DATE_FORMAT.parse(result.getString(updatedIndex));
+        } catch (ParseException e) {
+            Log.e(LOG_TAG, "could not parse user updated date from database: " + result.getString(updatedIndex), e);
+        }
         return result.getLong(idIndex);
     }
 
@@ -126,6 +143,7 @@ public class UserFragment extends Fragment {
         Log.d(LOG_TAG, "fragment started");
         // if the data is old or missing, update it from online if possible
         if (isNetworkAvailable()) {
+            Log.d(LOG_TAG, "user data last updated: " + mUpdated);
             if (mUpdated == null || mUpdated.before(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
                 if (mJWT != null) {
                     FetchUserTask fetchTask = new FetchUserTask();
@@ -244,10 +262,16 @@ public class UserFragment extends Fragment {
         protected void onPostExecute(JSONObject userData) {
             try {
                 boolean success = mDBHelper.setUser(userData);
+                long userID = (long) userData.getInt(UserFragment.LCR_USER_KEY_ID);
                 if (!success) {
                     Log.e(LOG_TAG, "something went wrong with storing data about the user.");
+                } else {
+                    Log.d(LOG_TAG, "Got fresh user data, updating listeners.");
+                    for(UserDataListener listener : userDataListeners) {
+                        listener.userUpdated(userID);
+                    }
+                    mUpdated = new Date();
                 }
-                int userID = userData.getInt(UserFragment.LCR_USER_KEY_ID);
                 SharedPreferences sharedPref = getContext().getSharedPreferences(
                         getString(R.string.preference_file_key),
                         Context.MODE_PRIVATE

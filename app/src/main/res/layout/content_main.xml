@@ -21,6 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:name="org.sil.lcroffline.UserFragment"
+            android:tag="@string/user_fragment_tag"
             android:id="@+id/user_fragment"
             tools:layout="@layout/fragment_user" />
 
