@@ -1,6 +1,5 @@
 package org.sil.lcroffline;
 
-import android.app.Application;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -13,6 +12,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -95,6 +95,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "FOREIGN KEY(" + LANGUAGE_FOREIGN_KEY + ") REFERENCES " + LANGUAGE_TABLE_NAME + "(" + PRIMARY_KEY + "), " +
                     "FOREIGN KEY(" + REPORT_FOREIGN_KEY + ") REFERENCES " + REPORT_TABLE_NAME + "(" + PRIMARY_KEY + ")" +
                     ");";
+
+    public static final SimpleDateFormat SQLITE_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
 
     DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -183,7 +185,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getUploadedReports(long userID) {
-        Log.d(LOG_TAG, "getting queued reports for user " + userID);
+        Log.d(LOG_TAG, "getting uploaded reports for user " + userID);
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(
                 REPORT_TABLE_NAME,
@@ -247,6 +249,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             ContentValues values = new ContentValues();
             values.put(USER_NAME_FIELD, user.getString(UserFragment.LCR_USER_KEY_NAME));
             values.put(USER_PHONE_FIELD, user.getString(UserFragment.LCR_USER_KEY_PHONE));
+            Date now = new Date();
+            values.put(USER_UPDATED_FIELD, SQLITE_DATE_FORMAT.format(now));
             boolean success = true;
             if (existing.getCount() == 0) {
                 // This user isn't in storage yet so use insert
@@ -295,11 +299,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             if (existing.getCount() == 0) {
                 // This state isn't in storage yet so use insert
                 values.put(PRIMARY_KEY, stateID);
-                Log.d(LOG_TAG, "Adding state: " + stateID);
+                Log.v(LOG_TAG, "Adding state: " + stateID);
                 db.insertOrThrow(STATE_TABLE_NAME, null, values);
             } else {
                 // This state already exists in storage, so use update.
-                Log.d(LOG_TAG, "Updating state: " + stateID);
+                Log.v(LOG_TAG, "Updating state: " + stateID);
                 db.update(
                         STATE_TABLE_NAME,
                         values,
@@ -312,7 +316,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             ContentValues joinValues = new ContentValues();
             joinValues.put(STATE_FOREIGN_KEY, stateID);
             joinValues.put(USER_FOREIGN_KEY, user_id);
-            Log.d(LOG_TAG, "relating state " + stateID + " with user " + user_id);
+            Log.v(LOG_TAG, "relating state " + stateID + " with user " + user_id);
             // if the state is already related to the user then nothing will happen (CONFLICT_IGNORE)
             db.insertWithOnConflict(
                     STATE_USER_JOIN_TABLE_NAME,
@@ -353,11 +357,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             if (existing.getCount() == 0) {
                 // This state isn't in storage yet so use insert
                 values.put(PRIMARY_KEY, languageID);
-                Log.d(LOG_TAG, "Adding language: " + languageID + " for state: " + state_id);
+                Log.v(LOG_TAG, "Adding language: " + languageID + " for state: " + state_id);
                 db.insertOrThrow(LANGUAGE_TABLE_NAME, null, values);
             } else {
                 // This state already exists in storage, so use update.
-                Log.d(LOG_TAG, "Updating language: " + languageID + " for state: " + state_id);
+                Log.v(LOG_TAG, "Updating language: " + languageID + " for state: " + state_id);
                 int changed = db.update(
                         LANGUAGE_TABLE_NAME,
                         values,
@@ -421,7 +425,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(REPORT_FOREIGN_KEY, reportID);
         values.put(LANGUAGE_FOREIGN_KEY, languageID);
-        Log.d(LOG_TAG, "adding to report " + reportID + " language " + languageID + " (" + languageName + ")");
+        Log.v(LOG_TAG, "adding to report " + reportID + " language " + languageID + " (" + languageName + ")");
         long rowID = db.insertWithOnConflict(LANGUAGE_REPORT_JOIN_TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_IGNORE);
         return rowID != -1;
     }
