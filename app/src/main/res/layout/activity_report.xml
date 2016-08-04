@@ -24,12 +24,15 @@
             android:layout_height="wrap_content"
             android:id="@+id/report_languages" />
 
-        <TextView
+        <Button
+            style="@style/Widget.AppCompat.Button.Borderless"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/pick_report_date"
             android:id="@+id/report_date"
-            android:clickable="true" />
+            android:textAllCaps="false"
+            android:clickable="true"
+            android:enabled="true" />
 
         <EditText
             android:layout_width="match_parent"
