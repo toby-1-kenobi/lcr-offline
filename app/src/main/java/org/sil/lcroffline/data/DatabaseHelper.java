@@ -31,21 +31,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final String LOG_TAG = DatabaseHelper.class.getSimpleName();
 
-    private static final int DATABASE_VERSION = 11;
+    private static final int DATABASE_VERSION = 12;
     private static final String DATABASE_NAME = "LCRoffline.db";
-
-    public static final String PRIMARY_KEY = "id";
 
     private static final String USER_TABLE_CREATE =
             "CREATE TABLE " + UserEntry.TABLE_NAME + " (" +
-                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    UserEntry._ID + " INTEGER PRIMARY KEY NOT NULL, " +
                     UserEntry.COLUMN_PHONE + " TEXT UNIQUE NOT NULL, " +
                     UserEntry.COLUMN_NAME + " TEXT NOT NULL, " +
                     UserEntry.COLUMN_UPDATED + " DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);";
 
     private static final String STATE_TABLE_CREATE =
             "CREATE TABLE " + StateEntry.TABLE_NAME + " (" +
-                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    StateEntry._ID + " INTEGER PRIMARY KEY NOT NULL, " +
                     StateEntry.COLUMN_NAME + " TEXT UNIQUE NOT NULL);";
 
     private static final String STATE_USER_JOIN_TABLE_CREATE =
@@ -53,27 +51,27 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     StateUserJoinEntry.COLUMN_STATE_KEY + " INTEGER NOT NULL, " +
                     StateUserJoinEntry.COLUMN_USER_KEY + " INTEGER NOT NULL, " +
                     "PRIMARY KEY (" + StateUserJoinEntry.COLUMN_STATE_KEY + ", " + StateUserJoinEntry.COLUMN_USER_KEY + "), " +
-                    "FOREIGN KEY(" + StateUserJoinEntry.COLUMN_STATE_KEY + ") REFERENCES " + StateEntry.TABLE_NAME + "(" + PRIMARY_KEY + "), " +
-                    "FOREIGN KEY(" + StateUserJoinEntry.COLUMN_USER_KEY + ") REFERENCES " + UserEntry.TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    "FOREIGN KEY(" + StateUserJoinEntry.COLUMN_STATE_KEY + ") REFERENCES " + StateEntry.TABLE_NAME + "(" + StateEntry._ID + "), " +
+                    "FOREIGN KEY(" + StateUserJoinEntry.COLUMN_USER_KEY + ") REFERENCES " + UserEntry.TABLE_NAME + "(" + UserEntry._ID + ")" +
                     ");";
 
     private static final String LANGUAGE_TABLE_CREATE =
             "CREATE TABLE " + LanguageEntry.TABLE_NAME + " (" +
-                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    LanguageEntry._ID + " INTEGER PRIMARY KEY NOT NULL, " +
                     StateUserJoinEntry.COLUMN_STATE_KEY + " INTEGER NOT NULL, " +
                     LanguageEntry.COLUMN_NAME + " TEXT NOT NULL, " +
-                    "FOREIGN KEY(" + LanguageEntry.COLUMN_STATE_KEY + ") REFERENCES " + StateEntry.TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    "FOREIGN KEY(" + LanguageEntry.COLUMN_STATE_KEY + ") REFERENCES " + StateEntry.TABLE_NAME + "(" + StateEntry._ID + ")" +
                     ");";
 
     private static final String REPORT_TABLE_CREATE =
             "CREATE TABLE " + ReportEntry.TABLE_NAME + " (" +
-                    PRIMARY_KEY + " INTEGER PRIMARY KEY NOT NULL, " +
+                    ReportEntry._ID + " INTEGER PRIMARY KEY NOT NULL, " +
                     ReportEntry.COLUMN_USER_KEY + " INTEGER NOT NULL, " +
                     ReportEntry.COLUMN_DATE + " DATE, " +
                     ReportEntry.COLUMN_CONTENT + " TEXT NOT NULL, " +
                     ReportEntry.COLUMN_LCR_ID + " INTEGER UNIQUE, " +
                     ReportEntry.COLUMN_FAIL_MSG + " TEXT, " +
-                    "FOREIGN KEY(" + ReportEntry.COLUMN_USER_KEY + ") REFERENCES " + UserEntry.TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    "FOREIGN KEY(" + ReportEntry.COLUMN_USER_KEY + ") REFERENCES " + UserEntry.TABLE_NAME + "(" + UserEntry._ID + ")" +
                     ");";
 
     private static final String LANGUAGE_REPORT_JOIN_TABLE_CREATE =
@@ -81,8 +79,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     LanguageReportJoinEntry.COLUMN_LANGUAGE_KEY + " INTEGER NOT NULL, " +
                     LanguageReportJoinEntry.COLUMN_REPORT_KEY + " INTEGER NOT NULL, " +
                     "PRIMARY KEY (" + LanguageReportJoinEntry.COLUMN_LANGUAGE_KEY + ", " + LanguageReportJoinEntry.COLUMN_REPORT_KEY + "), " +
-                    "FOREIGN KEY(" + LanguageReportJoinEntry.COLUMN_LANGUAGE_KEY + ") REFERENCES " + LanguageEntry.TABLE_NAME + "(" + PRIMARY_KEY + "), " +
-                    "FOREIGN KEY(" + LanguageReportJoinEntry.COLUMN_REPORT_KEY + ") REFERENCES " + ReportEntry.TABLE_NAME + "(" + PRIMARY_KEY + ")" +
+                    "FOREIGN KEY(" + LanguageReportJoinEntry.COLUMN_LANGUAGE_KEY + ") REFERENCES " + LanguageEntry.TABLE_NAME + "(" + LanguageEntry._ID + "), " +
+                    "FOREIGN KEY(" + LanguageReportJoinEntry.COLUMN_REPORT_KEY + ") REFERENCES " + ReportEntry.TABLE_NAME + "(" + ReportEntry._ID + ")" +
                     ");";
 
     public static final SimpleDateFormat SQLITE_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
@@ -117,7 +115,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(
                 UserEntry.TABLE_NAME,
-                new String[] {PRIMARY_KEY, UserEntry.COLUMN_NAME, UserEntry.COLUMN_UPDATED},
+                new String[] {UserEntry._ID, UserEntry.COLUMN_NAME, UserEntry.COLUMN_UPDATED},
                 UserEntry.COLUMN_PHONE + " = ?",
                 new String[] {phone},
                 null, null, null
@@ -129,12 +127,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.query(
                 StateEntry.TABLE_NAME +
                         " JOIN " + StateUserJoinEntry.TABLE_NAME +
-                        " ON " + StateEntry.TABLE_NAME + "." + PRIMARY_KEY +
+                        " ON " + StateEntry.TABLE_NAME + "." + StateEntry._ID +
                         " = " + StateUserJoinEntry.TABLE_NAME + "." + StateUserJoinEntry.COLUMN_STATE_KEY +
                         " JOIN " + UserEntry.TABLE_NAME +
-                        " ON " + UserEntry.TABLE_NAME + "." + PRIMARY_KEY +
+                        " ON " + UserEntry.TABLE_NAME + "." + UserEntry._ID +
                         " = " + StateUserJoinEntry.TABLE_NAME + "." + StateUserJoinEntry.COLUMN_USER_KEY,
-                new String[] {StateEntry.TABLE_NAME + "." + PRIMARY_KEY + " AS _id", StateEntry.TABLE_NAME + "." + StateEntry.COLUMN_NAME},
+                new String[] {StateEntry.TABLE_NAME + "." + StateEntry._ID + " AS _id", StateEntry.TABLE_NAME + "." + StateEntry.COLUMN_NAME},
                 UserEntry.COLUMN_PHONE + " = ?",
                 new String[] {phone},
                 null, null, null
@@ -164,7 +162,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(
                 ReportEntry.TABLE_NAME,
-                new String[] {PRIMARY_KEY, ReportEntry.COLUMN_DATE, ReportEntry.COLUMN_CONTENT},
+                new String[] {ReportEntry._ID, ReportEntry.COLUMN_DATE, ReportEntry.COLUMN_CONTENT},
                 ReportEntry.COLUMN_USER_KEY + " = ? AND " +
                         ReportEntry.COLUMN_LCR_ID + " IS NULL AND " +
                         ReportEntry.COLUMN_FAIL_MSG + " IS NULL",
@@ -212,7 +210,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor result = db.query(
                 LanguageEntry.TABLE_NAME,
                 new String[] {LanguageEntry.COLUMN_STATE_KEY},
-                PRIMARY_KEY + " = ?",
+                LanguageEntry._ID + " = ?",
                 new String[] {Long.toString(languageID)},
                 null, null, null
         );
@@ -230,8 +228,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             int userID = user.getInt(UserFragment.LCR_USER_KEY_ID);
             Cursor existing = db.query(
                     UserEntry.TABLE_NAME,
-                    new String[] {PRIMARY_KEY},
-                    PRIMARY_KEY + " = ?",
+                    new String[] {UserEntry._ID},
+                    UserEntry._ID + " = ?",
                     new String[] {Integer.toString(userID)},
                     null, null, null
             );
@@ -243,7 +241,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             boolean success = true;
             if (existing.getCount() == 0) {
                 // This user isn't in storage yet so use insert
-                values.put(PRIMARY_KEY, userID);
+                values.put(UserEntry._ID, userID);
                 Log.d(LOG_TAG, "adding user: " + userID);
                 db.insertOrThrow(UserEntry.TABLE_NAME, null, values);
             } else {
@@ -252,7 +250,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 int changed = db.update(
                         UserEntry.TABLE_NAME,
                         values,
-                        PRIMARY_KEY + " = ?",
+                        UserEntry._ID + " = ?",
                         new String[] {Integer.toString(userID)}
                 );
                 success = changed == 1;
@@ -278,8 +276,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             int stateID = state.getInt(UserFragment.LCR_STATE_KEY_ID);
             Cursor existing = db.query(
                     StateEntry.TABLE_NAME,
-                    new String[] {PRIMARY_KEY},
-                    PRIMARY_KEY + " = ?",
+                    new String[] {StateEntry._ID},
+                    StateEntry._ID + " = ?",
                     new String[] {Integer.toString(stateID)},
                     null, null, null
             );
@@ -287,7 +285,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             values.put(StateEntry.COLUMN_NAME, state.getString(UserFragment.LCR_STATE_KEY_NAME));
             if (existing.getCount() == 0) {
                 // This state isn't in storage yet so use insert
-                values.put(PRIMARY_KEY, stateID);
+                values.put(StateEntry._ID, stateID);
                 Log.v(LOG_TAG, "Adding state: " + stateID);
                 db.insertOrThrow(StateEntry.TABLE_NAME, null, values);
             } else {
@@ -296,7 +294,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 db.update(
                         StateEntry.TABLE_NAME,
                         values,
-                        PRIMARY_KEY + " = ?",
+                        StateEntry._ID + " = ?",
                         new String[] {Integer.toString(stateID)}
                 );
             }
@@ -334,8 +332,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             int languageID = language.getInt(UserFragment.LCR_LANGUAGE_KEY_ID);
             Cursor existing = db.query(
                     LanguageEntry.TABLE_NAME,
-                    new String[] {PRIMARY_KEY},
-                    PRIMARY_KEY + " = ?",
+                    new String[] {LanguageEntry._ID},
+                    LanguageEntry._ID + " = ?",
                     new String[] {Integer.toString(languageID)},
                     null, null, null
             );
@@ -345,7 +343,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             boolean success = true;
             if (existing.getCount() == 0) {
                 // This state isn't in storage yet so use insert
-                values.put(PRIMARY_KEY, languageID);
+                values.put(LanguageEntry._ID, languageID);
                 Log.v(LOG_TAG, "Adding language: " + languageID + " for state: " + state_id);
                 db.insertOrThrow(LanguageEntry.TABLE_NAME, null, values);
             } else {
@@ -354,7 +352,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 int changed = db.update(
                         LanguageEntry.TABLE_NAME,
                         values,
-                        PRIMARY_KEY + " = ?",
+                        LanguageEntry._ID + " = ?",
                         new String[] {Integer.toString(languageID)}
                 );
                 success = changed == 1;
@@ -399,7 +397,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private boolean addLanguageToReport(SQLiteDatabase db, long reportID, long stateID, CharSequence languageName) {
         Cursor result = db.query(
                 LanguageEntry.TABLE_NAME,
-                new String[] {PRIMARY_KEY},
+                new String[] {LanguageEntry._ID},
                 LanguageEntry.COLUMN_STATE_KEY + " = ? AND " + LanguageEntry.COLUMN_NAME + " = ?",
                 new String[] {Long.toString(stateID), languageName.toString()},
                 null, null, null
@@ -427,7 +425,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.update(
                 ReportEntry.TABLE_NAME,
                 values,
-                PRIMARY_KEY + " = ?",
+                ReportEntry._ID + " = ?",
                 new String[] {String.valueOf(localID)}
         );
     }

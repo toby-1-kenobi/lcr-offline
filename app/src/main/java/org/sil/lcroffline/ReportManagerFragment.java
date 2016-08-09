@@ -37,6 +37,8 @@ import java.util.Date;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import static org.sil.lcroffline.data.DatabaseContract.*;
+
 
 /**
  * A simple {@link Fragment} subclass.
@@ -134,7 +136,7 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
         LongSparseArray<JSONObject> reports = new LongSparseArray<JSONObject>();
         dbReports.moveToFirst();
         while(!dbReports.isAfterLast()) {
-            long reportID = dbReports.getLong(dbReports.getColumnIndex(DatabaseHelper.PRIMARY_KEY));
+            long reportID = dbReports.getLong(dbReports.getColumnIndex(ReportEntry._ID));
             Log.d(LOG_TAG, "building report " + reportID);
             JSONObject languages = new JSONObject();
             long[] reportLanguages = mDBHelper.getReportLanguages(reportID);
@@ -143,8 +145,8 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
                     languages.put(String.valueOf(language), language);
                 }
                 long stateId = mDBHelper.getLanguageState(reportLanguages[0]);
-                Date reportDate = new Date(dbReports.getLong(dbReports.getColumnIndex(DatabaseContract.ReportEntry.COLUMN_DATE)));
-                String reportContent = dbReports.getString(dbReports.getColumnIndex(DatabaseContract.ReportEntry.COLUMN_CONTENT));
+                Date reportDate = new Date(dbReports.getLong(dbReports.getColumnIndex(ReportEntry.COLUMN_DATE)));
+                String reportContent = dbReports.getString(dbReports.getColumnIndex(ReportEntry.COLUMN_CONTENT));
                 String packageName = getActivity().getPackageName();
                 String versionName = null;
                 try {

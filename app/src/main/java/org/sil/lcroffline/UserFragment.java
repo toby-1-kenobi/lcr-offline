@@ -36,6 +36,8 @@ import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import static org.sil.lcroffline.data.DatabaseContract.*;
+
 
 /**
  * A simple {@link Fragment} subclass.
@@ -92,9 +94,9 @@ public class UserFragment extends Fragment {
         if (!result.moveToFirst()) return -1; // user not found
         int idIndex, nameIndex, updatedIndex;
         try {
-            idIndex = result.getColumnIndexOrThrow(DatabaseHelper.PRIMARY_KEY);
-            nameIndex = result.getColumnIndexOrThrow(DatabaseContract.UserEntry.COLUMN_NAME);
-            updatedIndex = result.getColumnIndexOrThrow(DatabaseContract.UserEntry.COLUMN_UPDATED);
+            idIndex = result.getColumnIndexOrThrow(UserEntry._ID);
+            nameIndex = result.getColumnIndexOrThrow(UserEntry.COLUMN_NAME);
+            updatedIndex = result.getColumnIndexOrThrow(UserEntry.COLUMN_UPDATED);
         } catch (IllegalArgumentException e) {
             Log.e(LOG_TAG, "Cannot get user data from db - fields missing in db response.", e);
             return -1;
