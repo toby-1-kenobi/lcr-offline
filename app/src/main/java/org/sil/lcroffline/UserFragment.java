@@ -25,6 +25,8 @@ import android.widget.TextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.sil.lcroffline.data.DatabaseContract;
+import org.sil.lcroffline.data.DatabaseHelper;
 
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -91,8 +93,8 @@ public class UserFragment extends Fragment {
         int idIndex, nameIndex, updatedIndex;
         try {
             idIndex = result.getColumnIndexOrThrow(DatabaseHelper.PRIMARY_KEY);
-            nameIndex = result.getColumnIndexOrThrow(DatabaseHelper.USER_NAME_FIELD);
-            updatedIndex = result.getColumnIndexOrThrow(DatabaseHelper.USER_UPDATED_FIELD);
+            nameIndex = result.getColumnIndexOrThrow(DatabaseContract.UserEntry.COLUMN_NAME);
+            updatedIndex = result.getColumnIndexOrThrow(DatabaseContract.UserEntry.COLUMN_UPDATED);
         } catch (IllegalArgumentException e) {
             Log.e(LOG_TAG, "Cannot get user data from db - fields missing in db response.", e);
             return -1;

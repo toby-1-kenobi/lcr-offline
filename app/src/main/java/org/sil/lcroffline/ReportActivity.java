@@ -4,7 +4,6 @@ import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.v4.app.DialogFragment;
-import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -19,7 +18,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.w3c.dom.Text;
+import org.sil.lcroffline.data.DatabaseContract;
+import org.sil.lcroffline.data.DatabaseHelper;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -63,7 +63,7 @@ public class ReportActivity extends AppCompatActivity
                 this,
                 android.R.layout.simple_spinner_item,
                 mDBHelper.getUserStates(phone),
-                new String[] {DatabaseHelper.STATE_NAME_FIELD},
+                new String[] {DatabaseContract.StateEntry.COLUMN_NAME},
                 new int[] {android.R.id.text1}
         );
         stateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);

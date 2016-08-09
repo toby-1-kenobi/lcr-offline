@@ -22,6 +22,8 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.sil.lcroffline.data.DatabaseContract;
+import org.sil.lcroffline.data.DatabaseHelper;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -141,8 +143,8 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
                     languages.put(String.valueOf(language), language);
                 }
                 long stateId = mDBHelper.getLanguageState(reportLanguages[0]);
-                Date reportDate = new Date(dbReports.getLong(dbReports.getColumnIndex(DatabaseHelper.REPORT_DATE_FIELD)));
-                String reportContent = dbReports.getString(dbReports.getColumnIndex(DatabaseHelper.REPORT_CONTENT_FIELD));
+                Date reportDate = new Date(dbReports.getLong(dbReports.getColumnIndex(DatabaseContract.ReportEntry.COLUMN_DATE)));
+                String reportContent = dbReports.getString(dbReports.getColumnIndex(DatabaseContract.ReportEntry.COLUMN_CONTENT));
                 String packageName = getActivity().getPackageName();
                 String versionName = null;
                 try {
