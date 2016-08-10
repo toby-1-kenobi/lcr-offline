@@ -37,6 +37,7 @@ public class ReportActivity extends AppCompatActivity
 
     private final String LOG_TAG = ReportActivity.class.getSimpleName();
     private DatabaseHelper mDBHelper;
+    private SimpleCursorAdapter mStateAdapter;
 
     private SimpleDateFormat myDateFormat = new SimpleDateFormat("d MMM yyyy");
 
@@ -59,15 +60,15 @@ public class ReportActivity extends AppCompatActivity
         String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
 
         Spinner state_select = (Spinner) findViewById(R.id.report_state);
-        SimpleCursorAdapter stateAdapter = new SimpleCursorAdapter(
+        mStateAdapter = new SimpleCursorAdapter(
                 this,
                 android.R.layout.simple_spinner_item,
                 mDBHelper.getUserStates(phone),
                 new String[] {DatabaseContract.StateEntry.COLUMN_NAME},
                 new int[] {android.R.id.text1}
         );
-        stateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        state_select.setAdapter(stateAdapter);
+        mStateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        state_select.setAdapter(mStateAdapter);
         state_select.setOnItemSelectedListener(this);
 
         ArrayList<CharSequence> langArray = new ArrayList<CharSequence>();
@@ -90,6 +91,27 @@ public class ReportActivity extends AppCompatActivity
         Button okButton = (Button) findViewById(R.id.ok_button);
         okButton.setOnClickListener(this);
 
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mStateAdapter != null) {
+            mStateAdapter.getCursor().close();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mStateAdapter != null && mDBHelper != null) {
+            SharedPreferences sharedPref = this.getSharedPreferences(
+                    getString(R.string.preference_file_key),
+                    Context.MODE_PRIVATE
+            );
+            String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
+            mStateAdapter.changeCursor(mDBHelper.getUserStates(phone));
+        }
     }
 
     @Override

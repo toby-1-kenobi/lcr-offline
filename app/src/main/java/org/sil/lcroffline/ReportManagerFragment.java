@@ -111,6 +111,9 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
         TextView uploadedCount = (TextView) mRootView.findViewById(R.id.uploaded_count);
         uploadedCount.setText(String.valueOf(uploaded.getCount()));
 
+        queued.close();
+        uploaded.close();
+
     }
 
     @Override
@@ -124,6 +127,7 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
         if (mUserID >= 0 && isNetworkAvailable()) {
             Cursor queued = mDBHelper.getQueuedReports(mUserID);
             LongSparseArray<JSONObject> reports = buildJSONReports(queued);
+            queued.close();
             Log.d(LOG_TAG, "reports JSON built");
             if (reports.size() > 0) {
                 ReportUploadTask uploadTask = new ReportUploadTask(reports);

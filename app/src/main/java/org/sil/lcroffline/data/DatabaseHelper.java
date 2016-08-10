@@ -202,6 +202,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 result.moveToNext();
             }
         }
+        result.close();
         return languages;
     }
 
@@ -214,12 +215,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[] {Long.toString(languageID)},
                 null, null, null
         );
+        long stateID;
         if (result.moveToFirst()) {
-            return result.getLong(0);
+            stateID = result.getLong(0);
         } else {
             Log.e(LOG_TAG, "no corresponding state for language with id " + languageID);
-            return -1;
+            stateID = -1;
         }
+        result.close();
+        return stateID;
     }
 
     public boolean setUser(JSONObject user) {

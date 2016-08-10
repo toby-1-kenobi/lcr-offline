@@ -108,7 +108,9 @@ public class UserFragment extends Fragment {
         } catch (ParseException e) {
             Log.e(LOG_TAG, "could not parse user updated date from database: " + result.getString(updatedIndex), e);
         }
-        return result.getLong(idIndex);
+        long userID = result.getLong(idIndex);
+        result.close();
+        return userID;
     }
 
 
