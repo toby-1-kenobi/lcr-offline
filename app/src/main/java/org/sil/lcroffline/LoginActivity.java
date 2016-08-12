@@ -1,5 +1,7 @@
 package org.sil.lcroffline;
 
+import android.accounts.AccountAuthenticatorActivity;
+import android.accounts.AccountManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
@@ -48,10 +50,13 @@ import javax.net.ssl.HttpsURLConnection;
 /**
  * A login screen that offers login via email/password.
  */
-public class LoginActivity extends AppCompatActivity {
-
+public class LoginActivity extends AccountAuthenticatorActivity {
 
     private final String LOG_TAG = LoginActivity.class.getSimpleName();
+
+    private AccountManager mAccountManager;
+    private String mAccountName;
+    private String mAccountType;
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -68,9 +73,8 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Prepare to handle cookies
-        CookieManager cookieManager = new CookieManager();
-        CookieHandler.setDefault(cookieManager);
+        mAccountManager = AccountManager.get(getBaseContext());
+        mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
 
         setContentView(R.layout.activity_login);
 
@@ -116,7 +120,7 @@ public class LoginActivity extends AppCompatActivity {
         mPasswordView.setError(null);
 
         // Store values at the time of the login attempt.
-        String phone = mPhoneView.getText().toString();
+        mAccountName = mPhoneView.getText().toString();
         String password = mPasswordView.getText().toString();
 
         boolean cancel = false;
@@ -134,11 +138,11 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         // Check for a valid phone address.
-        if (TextUtils.isEmpty(phone)) {
+        if (TextUtils.isEmpty(mAccountName)) {
             mPhoneView.setError(getString(R.string.error_field_required));
             focusView = mPhoneView;
             cancel = true;
-        } else if (!isPhoneValid(phone)) {
+        } else if (!isPhoneValid(mAccountName)) {
             mPhoneView.setError(getString(R.string.error_invalid_phone));
             focusView = mPhoneView;
             cancel = true;
@@ -153,7 +157,7 @@ public class LoginActivity extends AppCompatActivity {
                 // Show a progress spinner, and kick off a background task to
                 // perform the user login attempt.
                 showProgress(true);
-                mAuthTask = new UserLoginTask(phone, password);
+                mAuthTask = new UserLoginTask(mAccountName, password);
                 mAuthTask.execute((Void) null);
             } else {
                 Log.i(LOG_TAG, "Offline Login");
@@ -163,14 +167,14 @@ public class LoginActivity extends AppCompatActivity {
                         getString(R.string.user_cred_preference_file_key),
                         Context.MODE_PRIVATE
                 );
-                if (userCredPref.contains(phone)) {
-                    String stored_password = userCredPref.getString(phone, null);
+                if (userCredPref.contains(mAccountName)) {
+                    String stored_password = userCredPref.getString(mAccountName, null);
                     Log.d(LOG_TAG, "stored password: " + stored_password);
                     boolean match;
-                    if (userCredPref.getBoolean(phone + getString(R.string.password_is_hashed_key), true)) {
+                    if (userCredPref.getBoolean(mAccountName + getString(R.string.password_is_hashed_key), true)) {
                         try {
-                            Log.d(LOG_TAG, "password hash: " + sha1(password, phone));
-                            match = stored_password.contentEquals(sha1(password, phone));
+                            Log.d(LOG_TAG, "password hash: " + sha1(password, mAccountName));
+                            match = stored_password.contentEquals(sha1(password, mAccountName));
                         } catch (NoSuchAlgorithmException e) {
                             Log.wtf(LOG_TAG, "SHA1 algorithm not available, yet this branch of code indicates we've used it before", e);
                             match = stored_password.contentEquals(password);
@@ -179,17 +183,7 @@ public class LoginActivity extends AppCompatActivity {
                         match = stored_password.contentEquals(password);
                     }
                     if (match) {
-                        if (userCredPref.contains(phone + getString(R.string.jwt_key))) {
-                            SharedPreferences.Editor sharedPrefEdit = getApplicationContext().getSharedPreferences(
-                                    getString(R.string.preference_file_key),
-                                    Context.MODE_PRIVATE
-                            ).edit();
-                            sharedPrefEdit.putString(
-                                    getString(R.string.jwt_key),
-                                    userCredPref.getString(phone + getString(R.string.jwt_key), null)
-                            ).apply();
-                        }
-                        onSuccessfulLogin();
+                        onSuccessfulLogin(userCredPref.getString(mAccountName + getString(R.string.jwt_key), null));
                     } else {
                         // bad password
                         mPasswordView.setError(getString(R.string.error_incorrect_password));
@@ -220,10 +214,14 @@ public class LoginActivity extends AppCompatActivity {
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
-    private void onSuccessfulLogin() {
-        // on successful login go to the main activity
-        Intent mainIntent = new Intent(getApplicationContext(), MainActivity.class);
-        startActivity(mainIntent);
+    private void onSuccessfulLogin(String token) {
+        // return response to the authenticator
+        Bundle result = new Bundle();
+        result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
+        result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
+        result.putString(AccountManager.KEY_AUTHTOKEN, token);
+        setAccountAuthenticatorResult(result);
+        finish();
     }
 
     private String sha1(String data, String salt) throws NoSuchAlgorithmException {
@@ -452,7 +450,7 @@ public class LoginActivity extends AppCompatActivity {
                 }
                 userCredEdit.apply();
 
-                onSuccessfulLogin();
+                onSuccessfulLogin(token);
             }
         }
 

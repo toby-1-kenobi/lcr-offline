@@ -226,7 +226,7 @@ public class UserFragment extends Fragment {
                     resultJsonStr = buffer.toString();
                 } else if (responseCode >= 400 && responseCode < 500) {
                     // server error response means the authentication didn't go through
-                    Log.d(LOG_TAG, "server error " + responseCode);
+                    Log.e(LOG_TAG, "server error " + responseCode);
                     return null;
                 } else {
                     Log.e(LOG_TAG, "Unexpected server response code: " + responseCode);
@@ -266,6 +266,10 @@ public class UserFragment extends Fragment {
 
         @Override
         protected void onPostExecute(JSONObject userData) {
+            if (userData == null) {
+                Log.e(LOG_TAG, "failed to get user data from the server");
+                return;
+            }
             try {
                 boolean success = mDBHelper.setUser(userData);
                 long userID = (long) userData.getInt(UserFragment.LCR_USER_KEY_ID);

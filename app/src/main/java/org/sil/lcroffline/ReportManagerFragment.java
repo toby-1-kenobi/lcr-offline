@@ -248,7 +248,6 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
                     postWriter = new BufferedWriter(new OutputStreamWriter(urlConnection.getOutputStream()));
                     InputStream inputStream;
 
-                    publishProgress(i + 1);
                     Log.d(LOG_TAG, "uploading report " + mJSONReports.keyAt(i));
 
                     // post the user credentials
@@ -278,16 +277,18 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
                         JSONResponseStr = buffer.toString();
                     } else if (responseCode >= 400 && responseCode < 500) {
                         // server error response means the authentication didn't go through
-                        Log.d(LOG_TAG, "server error " + responseCode);
-
+                        Log.e(LOG_TAG, "server error " + responseCode);
+                        continue;
                     } else {
                         Log.e(LOG_TAG, "Unexpected server response code: " + responseCode);
+                        continue;
                     }
 
                     try {
                         JSONObject JSONResponse = new JSONObject(JSONResponseStr);
                         boolean success = JSONResponse.getBoolean(getString(R.string.LCR_response_success_key));
                         if (success) {
+                            publishProgress(i + 1);
                             int LCRReportID = JSONResponse.getInt(getString(R.string.LCR_response_report_id_key));
                             Log.d(LOG_TAG, "LCR report id: " + LCRReportID);
                             mDBHelper.addLCRidToReport(mJSONReports.keyAt(i), LCRReportID);
