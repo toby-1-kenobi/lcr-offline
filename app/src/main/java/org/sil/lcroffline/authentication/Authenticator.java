@@ -9,11 +9,14 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
 /**
  * Created by toby on 12/08/16.
  */
 public class Authenticator extends AbstractAccountAuthenticator {
+
+    private final String LOG_TAG = Authenticator.class.getSimpleName();
 
     Context mContext;
 
@@ -34,8 +37,8 @@ public class Authenticator extends AbstractAccountAuthenticator {
             String authTokenType,
             String[] requiredFeatures,
             Bundle options) throws NetworkErrorException {
-        Account account = new Account("", accountType);
-        return referToLoginActivity(response, account, LoginActivity.Action.ADD_ACCOUNT);
+        Log.d(LOG_TAG, "Adding new account");
+        return referToLoginActivity(response, null, accountType, false);
     }
 
     @Override
@@ -43,7 +46,8 @@ public class Authenticator extends AbstractAccountAuthenticator {
             AccountAuthenticatorResponse response,
             Account account,
             Bundle options) throws NetworkErrorException {
-        return referToLoginActivity(response, account, LoginActivity.Action.CONFIRM_CREDENTIALS);
+        Log.d(LOG_TAG, "Confirming account credentials");
+        return referToLoginActivity(response, account.name, account.type, false);
     }
 
     @Override
@@ -52,13 +56,14 @@ public class Authenticator extends AbstractAccountAuthenticator {
             Account account,
             String authTokenType,
             Bundle options) throws NetworkErrorException {
-        return referToLoginActivity(response, account, LoginActivity.Action.GET_AUTH_TOKEN);
+        Log.d(LOG_TAG, "Getting Authentication Token");
+        return referToLoginActivity(response, account.name, account.type, true);
     }
 
     private Bundle referToLoginActivity(
             AccountAuthenticatorResponse response,
-            Account account,
-            LoginActivity.Action actionType) {
+            String accountName, String accountType,
+            boolean needsToken) {
 
         final Bundle bundle = new Bundle();
 
@@ -66,9 +71,9 @@ public class Authenticator extends AbstractAccountAuthenticator {
         final Intent intent = new Intent(mContext, LoginActivity.class);
 
         // configure that activity via the intent
-        intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, account.name);
-        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, account.type);
-        intent.putExtra(LoginActivity.ACTION_KEY, actionType);
+        intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, accountName);
+        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
+        intent.putExtra(LoginActivity.NEEDS_TOKEN_KEY, needsToken);
 
         // It will also need to know how to send its response to the account manager
         intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE,

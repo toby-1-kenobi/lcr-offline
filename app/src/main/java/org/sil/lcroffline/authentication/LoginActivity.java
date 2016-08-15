@@ -47,17 +47,15 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
     private final String LOG_TAG = LoginActivity.class.getSimpleName();
 
-    public enum Action {
-        GET_AUTH_TOKEN,
-        CONFIRM_CREDENTIALS,
-        ADD_ACCOUNT
-    }
-    public final String ACTION_KEY = "action";
+    public static final String NEEDS_TOKEN_KEY = "needs_token";
 
     private AccountManager mAccountManager;
     private String mAccountName;
     private String mAccountType;
-    private Action mAction;
+
+    // if the activity needs to return an authenticity token to the authenticator
+    // then this will be set to true in the onCreate() method
+    private boolean mNeedsToken;
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -73,18 +71,19 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(LOG_TAG, "create");
 
         mAccountManager = AccountManager.get(getBaseContext());
         mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
-        mAction = (Action) getIntent().getSerializableExtra(ACTION_KEY);
-        if (mAction == null) mAction = Action.GET_AUTH_TOKEN;
-        // if the account name is being passed in we put it in the phone field.
-        mPhoneView.setText(getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_NAME));
+        mNeedsToken = getIntent().getBooleanExtra(NEEDS_TOKEN_KEY, true);
 
         setContentView(R.layout.activity_login);
 
         // Set up the login form.
         mPhoneView = (EditText) findViewById(R.id.phone);
+        // if the account name is being passed in we put it in the phone field.
+        mPhoneView.setText(getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_NAME));
+
         mPasswordView = (EditText) findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
@@ -200,14 +199,17 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                         // correct credentials
                         // fetch existing token from storage
                         String token = userCredPref.getString(mAccountName + getString(R.string.jwt_key), null);
-                        // if there's no token put an error into the response
+                        // if there's no token and we need to have one, put an error into the response
                         // use network error code because we're trying to get the token without network access
                         // and we haven't got it.
-                        Bundle result = new Bundle();
-                        result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
-                        result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
-                        result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_NETWORK_ERROR);
-                        result.putString(AccountManager.KEY_ERROR_MESSAGE, "No existing session, and no network connection.");
+                        if (mNeedsToken) {
+                            Bundle result = new Bundle();
+                            result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
+                            result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
+                            result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_NETWORK_ERROR);
+                            result.putString(AccountManager.KEY_ERROR_MESSAGE, "No existing session, and no network connection.");
+                            setAccountAuthenticatorResult(result);
+                        }
 
                         onSuccessfulLogin(token);
                     } else {
@@ -243,7 +245,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     private void onSuccessfulLogin(String token) {
         // if we're fetching the token and we don't have one
         // then don't set the response here
-        if (token == null && mAction == Action.GET_AUTH_TOKEN) {
+        if (token == null && mNeedsToken) {
             finish();
             return;
         }
