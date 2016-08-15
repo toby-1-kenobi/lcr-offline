@@ -1,4 +1,4 @@
-package org.sil.lcroffline;
+package org.sil.lcroffline.authentication;
 
 import android.accounts.AccountAuthenticatorActivity;
 import android.accounts.AccountManager;
@@ -6,7 +6,6 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -14,7 +13,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -24,24 +22,19 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.sil.lcroffline.BuildConfig;
+import org.sil.lcroffline.R;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.net.CookieManager;
-import java.net.CookieHandler;
-import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -54,9 +47,17 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
     private final String LOG_TAG = LoginActivity.class.getSimpleName();
 
+    public enum Action {
+        GET_AUTH_TOKEN,
+        CONFIRM_CREDENTIALS,
+        ADD_ACCOUNT
+    }
+    public final String ACTION_KEY = "action";
+
     private AccountManager mAccountManager;
     private String mAccountName;
     private String mAccountType;
+    private Action mAction;
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -75,6 +76,10 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
         mAccountManager = AccountManager.get(getBaseContext());
         mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+        mAction = (Action) getIntent().getSerializableExtra(ACTION_KEY);
+        if (mAction == null) mAction = Action.GET_AUTH_TOKEN;
+        // if the account name is being passed in we put it in the phone field.
+        mPhoneView.setText(getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_NAME));
 
         setContentView(R.layout.activity_login);
 
@@ -104,6 +109,52 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         mProgressView = findViewById(R.id.login_progress);
     }
 
+    private boolean validateForm() {
+        // Reset errors.
+        mPhoneView.setError(null);
+        mPasswordView.setError(null);
+
+        // Store values at the time of the login attempt.
+        mAccountName = mPhoneView.getText().toString();
+        String password = mPasswordView.getText().toString();
+
+        boolean valid = true;
+        View focusView = null;
+
+        // Check for a valid password
+        if (TextUtils.isEmpty(password)) {
+            mPasswordView.setError(getString(R.string.error_field_required));
+            focusView = mPasswordView;
+            valid = false;
+        } else if (!isPasswordValid(password)) {
+            mPasswordView.setError(getString(R.string.error_invalid_password));
+            focusView = mPasswordView;
+            valid = false;
+        }
+
+        // Check for a valid phone address.
+        if (TextUtils.isEmpty(mAccountName)) {
+            mPhoneView.setError(getString(R.string.error_field_required));
+            focusView = mPhoneView;
+            valid = false;
+        } else if (!isPhoneValid(mAccountName)) {
+            mPhoneView.setError(getString(R.string.error_invalid_phone));
+            focusView = mPhoneView;
+            valid = false;
+        }
+
+        if (!valid) {
+            // There was an error; focus the first
+            // form field with an error.
+            focusView.requestFocus();
+        }
+
+        return valid;
+
+    }
+
+
+
 
     /**
      * Attempts to sign in or register the account specified by the login form.
@@ -114,45 +165,8 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         if (mAuthTask != null) {
             return;
         }
-
-        // Reset errors.
-        mPhoneView.setError(null);
-        mPasswordView.setError(null);
-
-        // Store values at the time of the login attempt.
-        mAccountName = mPhoneView.getText().toString();
-        String password = mPasswordView.getText().toString();
-
-        boolean cancel = false;
-        View focusView = null;
-
-        // Check for a valid password
-        if (TextUtils.isEmpty(password)) {
-            mPasswordView.setError(getString(R.string.error_field_required));
-            focusView = mPasswordView;
-            cancel = true;
-        } else if (!isPasswordValid(password)) {
-            mPasswordView.setError(getString(R.string.error_invalid_password));
-            focusView = mPasswordView;
-            cancel = true;
-        }
-
-        // Check for a valid phone address.
-        if (TextUtils.isEmpty(mAccountName)) {
-            mPhoneView.setError(getString(R.string.error_field_required));
-            focusView = mPhoneView;
-            cancel = true;
-        } else if (!isPhoneValid(mAccountName)) {
-            mPhoneView.setError(getString(R.string.error_invalid_phone));
-            focusView = mPhoneView;
-            cancel = true;
-        }
-
-        if (cancel) {
-            // There was an error; don't attempt login and focus the first
-            // form field with an error.
-            focusView.requestFocus();
-        } else {
+        if(validateForm()) {
+            String password = mPasswordView.getText().toString();
             if (isNetworkAvailable()) {
                 // Show a progress spinner, and kick off a background task to
                 // perform the user login attempt.
