@@ -12,6 +12,7 @@
     <string name="connection_required">An Internet connection is required for first time login.</string>
 
     <string name="title_activity_main">LCIR Offline</string>
+    <string name="account_label">LCI App</string>
 
     <string name="queued_message">Reports queued for upload:</string>
     <string name="uploaded_message">Reports uploaded:</string>

@@ -197,7 +197,19 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                         match = stored_password.contentEquals(password);
                     }
                     if (match) {
-                        onSuccessfulLogin(userCredPref.getString(mAccountName + getString(R.string.jwt_key), null));
+                        // correct credentials
+                        // fetch existing token from storage
+                        String token = userCredPref.getString(mAccountName + getString(R.string.jwt_key), null);
+                        // if there's no token put an error into the response
+                        // use network error code because we're trying to get the token without network access
+                        // and we haven't got it.
+                        Bundle result = new Bundle();
+                        result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
+                        result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
+                        result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_NETWORK_ERROR);
+                        result.putString(AccountManager.KEY_ERROR_MESSAGE, "No existing session, and no network connection.");
+
+                        onSuccessfulLogin(token);
                     } else {
                         // bad password
                         mPasswordView.setError(getString(R.string.error_incorrect_password));
@@ -229,6 +241,12 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     }
 
     private void onSuccessfulLogin(String token) {
+        // if we're fetching the token and we don't have one
+        // then don't set the response here
+        if (token == null && mAction == Action.GET_AUTH_TOKEN) {
+            finish();
+            return;
+        }
         // return response to the authenticator
         Bundle result = new Bundle();
         result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);

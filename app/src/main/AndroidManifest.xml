@@ -30,6 +30,13 @@
         </activity>
         <activity android:name=".ReportActivity"
             android:parentActivityName=".MainActivity"></activity>
+        <service android:name=".authentication.AuthenticatorService">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
     </application>
 
 </manifest>
