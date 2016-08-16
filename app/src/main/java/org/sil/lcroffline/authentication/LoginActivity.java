@@ -7,6 +7,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -37,6 +38,7 @@ import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Date;
 import java.util.Random;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -52,10 +54,12 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     public static final String KEY_CONFIRM_CRED_ONLY = "confirm_credentials";
     public static final String KEY_ACCOUNT = "account";
 
-    // keys for user values put into the account manager
+    // keys for user values put into shared preferences
+    // when using these keys they are prefixed with the account name
     public static final String KEY_USERNAME = "username";
     public static final String KEY_HASHED_PASSWORD = "hashed_password";
     public static final String KEY_HASH_SALT = "hash_salt";
+    public static final String KEY_LAST_AUTHENTICATED = "last_authenticated";
 
     // we use a random number as part of the password hash salt
     private Random mRandom;
@@ -99,6 +103,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         // adjust layout according to data in intent
         mAccount = getIntent().getParcelableExtra(KEY_ACCOUNT);
         if (mAccount != null) {
+            Log.d(LOG_TAG, "got account");
             mAccountName = mAccount.name;
             mAccountType = mAccount.type;
             // if the account name is being passed in we put it in the phone field.
@@ -107,14 +112,18 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             mPhoneView.setVisibility(View.GONE);
             View enterPassMsg = findViewById(R.id.enterPassMsg);
             enterPassMsg.setVisibility(View.VISIBLE);
-            String username = mAccountManager.getUserData(mAccount, KEY_USERNAME);
+            String username = getApplicationContext().getSharedPreferences(
+                    getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
+                    .getString(KEY_USERNAME, null);
             TextView usernameView = (TextView) findViewById(R.id.userName);
             if (username != null) {
                 usernameView.setText(username + " (" + mAccountName + ")");
             } else {
                 usernameView.setText("Phone: " + mAccountName);
             }
+            usernameView.setVisibility(View.VISIBLE);
         } else {
+            Log.d(LOG_TAG, "no account");
             mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
         }
         mConfirmCredentials = getIntent().getBooleanExtra(KEY_CONFIRM_CRED_ONLY, false);
@@ -200,7 +209,9 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         }
 
         // get the hashed password
-        String hashedPassword = mAccountManager.getUserData(mAccount, KEY_HASHED_PASSWORD);
+        String hashedPassword = getApplicationContext().getSharedPreferences(
+                getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
+                .getString(KEY_HASHED_PASSWORD, null);
         if (hashedPassword == null) {
             // if we haven't got a stored password we have to validate with the server
             attemptLogin();
@@ -208,7 +219,9 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         }
         if (validateForm()) {
             // get the salt
-            String salt = mAccountManager.getUserData(mAccount, KEY_HASH_SALT);
+            String salt = getApplicationContext().getSharedPreferences(
+                    getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
+                    .getString(KEY_HASH_SALT, null);
             // get the user provided password
             String password = mPasswordView.getText().toString();
             // compare
@@ -254,8 +267,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                 mAuthTask.execute((Void) null);
             } else {
                 // there's no network connection
-                // and there's no account object (we must be trying to create an account)
-                onFailure(AccountManager.ERROR_CODE_NETWORK_ERROR, "No existing account and no network connection.");
+                onFailure(AccountManager.ERROR_CODE_NETWORK_ERROR, "No network connection.");
             }
         }
     }
@@ -277,12 +289,18 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     }
 
     private void onSuccessfulLogin(String token) {
+        Log.d(LOG_TAG, "successful authentication");
         // return response to the authenticator
         Bundle result = new Bundle();
         result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
         result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
         result.putString(AccountManager.KEY_AUTHTOKEN, token);
         result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+        getApplicationContext().getSharedPreferences(
+                getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
+                .edit()
+                .putLong(KEY_LAST_AUTHENTICATED, new Date().getTime())
+                .apply();
         setAccountAuthenticatorResult(result);
         finish();
     }
@@ -316,14 +334,18 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         return buf.toString();
     }
 
-    private void storeHashedPassword(Account account, String password) throws NoSuchAlgorithmException {
+    private void storeHashedPassword(String accountName, String password) throws NoSuchAlgorithmException {
         // password should be hashed when stored
         // use a salt of the phone number plus a random long number
         String hashedPassword = null;
         String salt = String.valueOf(mRandom.nextLong());
-        mAccountManager.setUserData(account, KEY_HASH_SALT, salt);
-        hashedPassword = sha1(password, account.name + salt);
-        mAccountManager.setUserData(account, KEY_HASHED_PASSWORD, hashedPassword);
+        hashedPassword = sha1(password, accountName + salt);
+        getApplicationContext().getSharedPreferences(
+                getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
+                .edit()
+                .putString(accountName + KEY_HASH_SALT, salt)
+                .putString(accountName + KEY_HASHED_PASSWORD, hashedPassword)
+                .apply();
     }
 
     /**
@@ -495,19 +517,18 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             mAuthTask = null;
             showProgress(false);
 
-            Log.d(LOG_TAG, "token: " + token);
-
             if (token == null) {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
                 mPasswordView.requestFocus();
             } else {
+                Log.d(LOG_TAG, "token received");
                 // we've successfully retrieved the token from the server.
                 // set the account name
                 mAccountName = mPhone;
 
                 // save the password as a hash
                 try {
-                    storeHashedPassword(mAccount, mPassword);
+                    storeHashedPassword(mAccountName, mPassword);
                 } catch (NoSuchAlgorithmException e) {
                     // This is quite unexpected that the SHA1 algorithm is not available
                     // in this case we wont store the password

@@ -141,7 +141,6 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
         dbReports.moveToFirst();
         while(!dbReports.isAfterLast()) {
             long reportID = dbReports.getLong(dbReports.getColumnIndex(ReportEntry._ID));
-            Log.d(LOG_TAG, "building report " + reportID);
             JSONObject languages = new JSONObject();
             long[] reportLanguages = mDBHelper.getReportLanguages(reportID);
             try {

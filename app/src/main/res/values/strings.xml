@@ -24,7 +24,11 @@
     <string name="languages_dialog_tag" translatable="false">select_languages</string>
     <string name="pick_report_date">Report date</string>
 
+    <string name="pick_account">Choose your LCI Reporter account</string>
+
     <string name="user_fragment_tag" translatable="false">user_fragment</string>
+
+    <string name="LCIR_account_type" translatable="false">org.sil.lcir</string>
 
     <!-- Strings pertaining to storing data to and retrieving data from shared preferences -->
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>

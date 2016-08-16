@@ -58,9 +58,6 @@ public class Authenticator extends AbstractAccountAuthenticator {
             Account account,
             Bundle options) throws NetworkErrorException {
         Log.d(LOG_TAG, "Confirming account credentials");
-        for (String option_key: options.keySet()) {
-            Log.d(LOG_TAG, option_key);
-        }
         return referToLoginActivity(response, account, true);
     }
 
