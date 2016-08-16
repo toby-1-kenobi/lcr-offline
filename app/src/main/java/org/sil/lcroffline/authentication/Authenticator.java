@@ -5,7 +5,6 @@ import android.accounts.Account;
 import android.accounts.AccountAuthenticatorResponse;
 import android.accounts.AccountManager;
 import android.accounts.NetworkErrorException;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -38,7 +37,19 @@ public class Authenticator extends AbstractAccountAuthenticator {
             String[] requiredFeatures,
             Bundle options) throws NetworkErrorException {
         Log.d(LOG_TAG, "Adding new account");
-        return referToLoginActivity(response, null, accountType, false);
+
+        // We're going to use a LoginActivity to talk to the user
+        final Intent intent = new Intent(mContext, LoginActivity.class);
+
+        // configure that activity via the intent
+        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
+        intent.putExtra(LoginActivity.KEY_CONFIRM_CRED_ONLY, false);
+
+        // It will also need to know how to send its response to the account manager
+        intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE,
+                response);
+
+        return referToLoginActivity(intent);
     }
 
     @Override
@@ -47,7 +58,10 @@ public class Authenticator extends AbstractAccountAuthenticator {
             Account account,
             Bundle options) throws NetworkErrorException {
         Log.d(LOG_TAG, "Confirming account credentials");
-        return referToLoginActivity(response, account.name, account.type, false);
+        for (String option_key: options.keySet()) {
+            Log.d(LOG_TAG, option_key);
+        }
+        return referToLoginActivity(response, account, true);
     }
 
     @Override
@@ -57,33 +71,35 @@ public class Authenticator extends AbstractAccountAuthenticator {
             String authTokenType,
             Bundle options) throws NetworkErrorException {
         Log.d(LOG_TAG, "Getting Authentication Token");
-        return referToLoginActivity(response, account.name, account.type, true);
+        return referToLoginActivity(response, account, false);
     }
 
     private Bundle referToLoginActivity(
             AccountAuthenticatorResponse response,
-            String accountName, String accountType,
-            boolean needsToken) {
-
-        final Bundle bundle = new Bundle();
+            Account account,
+            boolean confirmCred) {
 
         // We're going to use a LoginActivity to talk to the user
         final Intent intent = new Intent(mContext, LoginActivity.class);
 
         // configure that activity via the intent
-        intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, accountName);
-        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
-        intent.putExtra(LoginActivity.NEEDS_TOKEN_KEY, needsToken);
+        intent.putExtra(LoginActivity.KEY_ACCOUNT, account);
+        intent.putExtra(LoginActivity.KEY_CONFIRM_CRED_ONLY, confirmCred);
 
         // It will also need to know how to send its response to the account manager
         intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE,
                 response);
 
+        return referToLoginActivity(intent);
+
+    }
+
+    private Bundle referToLoginActivity(Intent intent) {
+        final Bundle bundle = new Bundle();
         // Wrap up this intent, and return it, which will cause the
         // intent to be run
         bundle.putParcelable(AccountManager.KEY_INTENT, intent);
         return bundle;
-
     }
 
 

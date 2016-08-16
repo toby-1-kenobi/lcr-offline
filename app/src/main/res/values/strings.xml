@@ -12,7 +12,7 @@
     <string name="connection_required">An Internet connection is required for first time login.</string>
 
     <string name="title_activity_main">LCIR Offline</string>
-    <string name="account_label">LCI App</string>
+    <string name="account_label">LCI Reporter App</string>
 
     <string name="queued_message">Reports queued for upload:</string>
     <string name="uploaded_message">Reports uploaded:</string>
@@ -46,5 +46,6 @@
     <string name="LCR_response_success_key" translatable="false">success</string>
     <string name="LCR_response_report_id_key" translatable="false">report_id</string>
     <string name="LCR_response_errors_key" translatable="false">errors</string>
+    <string name="enter_password_message">Enter your LCI Reporter password</string>
 
 </resources>

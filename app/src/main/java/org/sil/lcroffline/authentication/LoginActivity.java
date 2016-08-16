@@ -1,12 +1,12 @@
 package org.sil.lcroffline.authentication;
 
+import android.accounts.Account;
 import android.accounts.AccountAuthenticatorActivity;
 import android.accounts.AccountManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -37,6 +37,7 @@ import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Random;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -47,15 +48,26 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
     private final String LOG_TAG = LoginActivity.class.getSimpleName();
 
-    public static final String NEEDS_TOKEN_KEY = "needs_token";
+    // keys for values in the incoming intent
+    public static final String KEY_CONFIRM_CRED_ONLY = "confirm_credentials";
+    public static final String KEY_ACCOUNT = "account";
+
+    // keys for user values put into the account manager
+    public static final String KEY_USERNAME = "username";
+    public static final String KEY_HASHED_PASSWORD = "hashed_password";
+    public static final String KEY_HASH_SALT = "hash_salt";
+
+    // we use a random number as part of the password hash salt
+    private Random mRandom;
 
     private AccountManager mAccountManager;
+    private Account mAccount;
     private String mAccountName;
     private String mAccountType;
 
-    // if the activity needs to return an authenticity token to the authenticator
+    // if the activity only needs to confirm user credentials
     // then this will be set to true in the onCreate() method
-    private boolean mNeedsToken;
+    private boolean mConfirmCredentials;
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -74,22 +86,49 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         Log.d(LOG_TAG, "create");
 
         mAccountManager = AccountManager.get(getBaseContext());
-        mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
-        mNeedsToken = getIntent().getBooleanExtra(NEEDS_TOKEN_KEY, true);
+        mRandom = new Random();
 
         setContentView(R.layout.activity_login);
 
-        // Set up the login form.
+        // get references to form fields.
         mPhoneView = (EditText) findViewById(R.id.phone);
-        // if the account name is being passed in we put it in the phone field.
-        mPhoneView.setText(getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_NAME));
-
         mPasswordView = (EditText) findViewById(R.id.password);
+        mLoginFormView = findViewById(R.id.login_form);
+        mProgressView = findViewById(R.id.login_progress);
+
+        // adjust layout according to data in intent
+        mAccount = getIntent().getParcelableExtra(KEY_ACCOUNT);
+        if (mAccount != null) {
+            mAccountName = mAccount.name;
+            mAccountType = mAccount.type;
+            // if the account name is being passed in we put it in the phone field.
+            mPhoneView.setText(mAccountName);
+            // hide the phone field and show username and enter password message
+            mPhoneView.setVisibility(View.GONE);
+            View enterPassMsg = findViewById(R.id.enterPassMsg);
+            enterPassMsg.setVisibility(View.VISIBLE);
+            String username = mAccountManager.getUserData(mAccount, KEY_USERNAME);
+            TextView usernameView = (TextView) findViewById(R.id.userName);
+            if (username != null) {
+                usernameView.setText(username + " (" + mAccountName + ")");
+            } else {
+                usernameView.setText("Phone: " + mAccountName);
+            }
+        } else {
+            mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+        }
+        mConfirmCredentials = getIntent().getBooleanExtra(KEY_CONFIRM_CRED_ONLY, false);
+
+        // set handlers on events
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
                 if (id == R.id.login || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
+                    if (mConfirmCredentials) {
+                        validateCredentials();
+                    } else {
+                        attemptLogin();
+                    }
                     return true;
                 }
                 return false;
@@ -100,12 +139,13 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         mSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                attemptLogin();
+                if (mConfirmCredentials) {
+                    validateCredentials();
+                } else {
+                    attemptLogin();
+                }
             }
         });
-
-        mLoginFormView = findViewById(R.id.login_form);
-        mProgressView = findViewById(R.id.login_progress);
     }
 
     private boolean validateForm() {
@@ -131,7 +171,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             valid = false;
         }
 
-        // Check for a valid phone address.
+        // Check for a valid phone number.
         if (TextUtils.isEmpty(mAccountName)) {
             mPhoneView.setError(getString(R.string.error_field_required));
             focusView = mPhoneView;
@@ -149,6 +189,46 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         }
 
         return valid;
+
+    }
+
+    private void validateCredentials() {
+        Log.d(LOG_TAG, "validating credentials");
+        if (mAccount == null) {
+            Log.wtf(LOG_TAG, "we're trying to validate credentials without an account object");
+            onFailure(AccountManager.ERROR_CODE_UNSUPPORTED_OPERATION, "must pass account to validate credentials");
+        }
+
+        // get the hashed password
+        String hashedPassword = mAccountManager.getUserData(mAccount, KEY_HASHED_PASSWORD);
+        if (hashedPassword == null) {
+            // if we haven't got a stored password we have to validate with the server
+            attemptLogin();
+            return;
+        }
+        if (validateForm()) {
+            // get the salt
+            String salt = mAccountManager.getUserData(mAccount, KEY_HASH_SALT);
+            // get the user provided password
+            String password = mPasswordView.getText().toString();
+            // compare
+            try {
+                if (hashedPassword.contentEquals(sha1(password, mAccountName + salt))) {
+                    onSuccessfulLogin(null);
+                } else {
+                    // return negative response to the authenticator
+                    Bundle result = new Bundle();
+                    result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
+                    result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
+                    result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, false);
+                    setAccountAuthenticatorResult(result);
+                    finish();
+                }
+            } catch (NoSuchAlgorithmException e) {
+                Log.e(LOG_TAG, "SHA1 algorithm not found when trying to hash a password!");
+                onFailure(AccountManager.ERROR_CODE_UNSUPPORTED_OPERATION, "no SHA1 algorithm available");
+            }
+        }
 
     }
 
@@ -173,55 +253,9 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                 mAuthTask = new UserLoginTask(mAccountName, password);
                 mAuthTask.execute((Void) null);
             } else {
-                Log.i(LOG_TAG, "Offline Login");
-                // without a network connection we try to authenticate with
-                // stored credentials that were previously used successfully
-                SharedPreferences userCredPref = getApplicationContext().getSharedPreferences(
-                        getString(R.string.user_cred_preference_file_key),
-                        Context.MODE_PRIVATE
-                );
-                if (userCredPref.contains(mAccountName)) {
-                    String stored_password = userCredPref.getString(mAccountName, null);
-                    Log.d(LOG_TAG, "stored password: " + stored_password);
-                    boolean match;
-                    if (userCredPref.getBoolean(mAccountName + getString(R.string.password_is_hashed_key), true)) {
-                        try {
-                            Log.d(LOG_TAG, "password hash: " + sha1(password, mAccountName));
-                            match = stored_password.contentEquals(sha1(password, mAccountName));
-                        } catch (NoSuchAlgorithmException e) {
-                            Log.wtf(LOG_TAG, "SHA1 algorithm not available, yet this branch of code indicates we've used it before", e);
-                            match = stored_password.contentEquals(password);
-                        }
-                    } else {
-                        match = stored_password.contentEquals(password);
-                    }
-                    if (match) {
-                        // correct credentials
-                        // fetch existing token from storage
-                        String token = userCredPref.getString(mAccountName + getString(R.string.jwt_key), null);
-                        // if there's no token and we need to have one, put an error into the response
-                        // use network error code because we're trying to get the token without network access
-                        // and we haven't got it.
-                        if (mNeedsToken) {
-                            Bundle result = new Bundle();
-                            result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
-                            result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
-                            result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_NETWORK_ERROR);
-                            result.putString(AccountManager.KEY_ERROR_MESSAGE, "No existing session, and no network connection.");
-                            setAccountAuthenticatorResult(result);
-                        }
-
-                        onSuccessfulLogin(token);
-                    } else {
-                        // bad password
-                        mPasswordView.setError(getString(R.string.error_incorrect_password));
-                        mPasswordView.requestFocus();
-                    }
-                } else {
-                    // user credentials not stored
-                    mPhoneView.setError(getString(R.string.connection_required));
-                    mPhoneView.requestFocus();
-                }
+                // there's no network connection
+                // and there's no account object (we must be trying to create an account)
+                onFailure(AccountManager.ERROR_CODE_NETWORK_ERROR, "No existing account and no network connection.");
             }
         }
     }
@@ -243,17 +277,23 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     }
 
     private void onSuccessfulLogin(String token) {
-        // if we're fetching the token and we don't have one
-        // then don't set the response here
-        if (token == null && mNeedsToken) {
-            finish();
-            return;
-        }
         // return response to the authenticator
         Bundle result = new Bundle();
         result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
         result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
         result.putString(AccountManager.KEY_AUTHTOKEN, token);
+        result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+        setAccountAuthenticatorResult(result);
+        finish();
+    }
+
+    private void onFailure(int errorCode, String errorMessage) {
+        Log.e(LOG_TAG, errorMessage);
+        Bundle result = new Bundle();
+        result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccountName);
+        result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccountType);
+        result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
+        result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMessage);
         setAccountAuthenticatorResult(result);
         finish();
     }
@@ -274,6 +314,16 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             buf.append(hexDigit[bytes[j] & 0x0f]);
         }
         return buf.toString();
+    }
+
+    private void storeHashedPassword(Account account, String password) throws NoSuchAlgorithmException {
+        // password should be hashed when stored
+        // use a salt of the phone number plus a random long number
+        String hashedPassword = null;
+        String salt = String.valueOf(mRandom.nextLong());
+        mAccountManager.setUserData(account, KEY_HASH_SALT, salt);
+        hashedPassword = sha1(password, account.name + salt);
+        mAccountManager.setUserData(account, KEY_HASHED_PASSWORD, hashedPassword);
     }
 
     /**
@@ -401,7 +451,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                     tokenJsonStr = buffer.toString();
                 } else if (responseCode >= 400 && responseCode < 500) {
                     // server error response means the authentication didn't go through
-                    Log.d(LOG_TAG, "server error " + responseCode);
+                    Log.e(LOG_TAG, "server error: " + responseCode);
                     return null;
                 } else {
                     Log.e(LOG_TAG, "Unexpected server response code: " + responseCode);
@@ -451,39 +501,19 @@ public class LoginActivity extends AccountAuthenticatorActivity {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
                 mPasswordView.requestFocus();
             } else {
-                // save the token and credentials
-                SharedPreferences sharedPref = getApplicationContext().getSharedPreferences(
-                        getString(R.string.preference_file_key),
-                        Context.MODE_PRIVATE
-                );
-                sharedPref
-                        .edit()
-                        .putString(getString(R.string.current_user_phone_key), mPhone)
-                        .putString(getString(R.string.jwt_key), token)
-                        .apply();
+                // we've successfully retrieved the token from the server.
+                // set the account name
+                mAccountName = mPhone;
 
-                SharedPreferences userCredPref = getApplicationContext().getSharedPreferences(
-                        getString(R.string.user_cred_preference_file_key),
-                        Context.MODE_PRIVATE
-                );
-                SharedPreferences.Editor userCredEdit = userCredPref.edit();
-                userCredEdit.putString(mPhone + getString(R.string.jwt_key), token);
-                // password should be hashed when stored
-                // use the phone number as salt
-                String hashedPassword = null;
+                // save the password as a hash
                 try {
-                    hashedPassword = sha1(mPassword, mPhone);
-                    userCredEdit.putString(mPhone, hashedPassword);
-                    userCredEdit.putBoolean(mPhone + getString(R.string.password_is_hashed_key), true);
+                    storeHashedPassword(mAccount, mPassword);
                 } catch (NoSuchAlgorithmException e) {
                     // This is quite unexpected that the SHA1 algorithm is not available
-                    // Instead of crashing we'll risk storing the password in shared preferences without hashing
-                    Log.w(LOG_TAG, "cannot apply SHA1 so password is stored in plain text", e);
-                    userCredEdit.putString(mPhone, mPassword);
-                    userCredEdit.putBoolean(mPhone + getString(R.string.password_is_hashed_key), false);
+                    // in this case we wont store the password
+                    Log.w(LOG_TAG, "cannot apply SHA1 - algorithm not available.", e);
                 }
-                userCredEdit.apply();
-
+                // and pass on the token
                 onSuccessfulLogin(token);
             }
         }
