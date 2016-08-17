@@ -1,5 +1,9 @@
 package org.sil.lcroffline;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
@@ -25,7 +29,6 @@ import android.widget.TextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.sil.lcroffline.data.DatabaseContract;
 import org.sil.lcroffline.data.DatabaseHelper;
 
 import java.text.ParseException;
@@ -63,7 +66,7 @@ public class UserFragment extends Fragment {
     private static final int DATA_EXPIRATION_DAYS = 1;
 
     private Date mUpdated;
-    private String mJWT;
+    private Account mAccount;
 
     private DatabaseHelper mDBHelper;
     private View rootView;
@@ -87,6 +90,20 @@ public class UserFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mDBHelper = new DatabaseHelper(getContext());
+        loadAccount();
+    }
+
+    private boolean loadAccount() {
+        SharedPreferences pref = getActivity().getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE);
+        String accountName = pref.getString(getString(R.string.key_account_name), null);
+        if (accountName != null) {
+            mAccount = new Account(accountName, getString(R.string.LCIR_account_type));
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private long GetUserFromDatabase(String phone, View rootView) {
@@ -120,21 +137,16 @@ public class UserFragment extends Fragment {
         // Inflate the layout for this fragment
         rootView = inflater.inflate(R.layout.fragment_user, container, false);
 
-        SharedPreferences sharedPref = getContext().getSharedPreferences(
-                getString(R.string.preference_file_key),
-                Context.MODE_PRIVATE
-        );
-        // get current user phone number from shared preferences
-        String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
-        mJWT = sharedPref.getString(getString(R.string.jwt_key), null);
-        if (phone != null) {
+        if (mAccount == null) loadAccount();
+
+        if (mAccount != null) {
             // use the phone number to fetch more user data from db
-            long userId = GetUserFromDatabase(phone, rootView);
+            long userId = GetUserFromDatabase(mAccount.name, rootView);
             if (userId == -1) {
-                Log.d(LOG_TAG, "could not retrieve user fom db with phone " + phone);
+                Log.d(LOG_TAG, "could not retrieve user fom db with phone " + mAccount.name);
             } else {
                 // and save the user id to shared pref
-                sharedPref
+                getContext().getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE)
                         .edit()
                         .putLong(getString(R.string.current_user_id_key), userId)
                         .apply();
@@ -151,7 +163,7 @@ public class UserFragment extends Fragment {
         if (isNetworkAvailable()) {
             Log.d(LOG_TAG, "user data last updated: " + mUpdated);
             if (mUpdated == null || mUpdated.before(subtractDays(new Date(), DATA_EXPIRATION_DAYS))) {
-                if (mJWT != null) {
+                if (mAccount != null) {
                     FetchUserTask fetchTask = new FetchUserTask();
                     fetchTask.execute();
                 }
@@ -186,7 +198,11 @@ public class UserFragment extends Fragment {
             // Will contain the raw JSON response as a string.
             String resultJsonStr = null;
 
+            if (mAccount == null && !loadAccount()) return null;
+
             try {
+
+                String token = AccountManager.get(getContext()).blockingGetAuthToken(mAccount, getString(R.string.auth_token_type), false);
 
                 Uri builtUri = Uri.parse(BuildConfig.LCR_URL).buildUpon().appendPath("users").appendPath("me").build();
                 URL url = new URL(builtUri.toString());
@@ -195,11 +211,23 @@ public class UserFragment extends Fragment {
                 // connect to LCR
                 urlConnection = (HttpsURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("GET");
-                urlConnection.setRequestProperty("Authorization", "Bearer " + mJWT);
+                urlConnection.setRequestProperty("Authorization", "Bearer " + token);
                 urlConnection.connect();
 
                 // check the response
                 int responseCode  = urlConnection.getResponseCode();
+                if (responseCode == 401) {
+                    Log.d(LOG_TAG, "server denied authorisation, invalidating token and trying again.");
+                    AccountManager accountManager = AccountManager.get(getContext());
+                    accountManager.invalidateAuthToken(getString(R.string.LCIR_account_type), token);
+                    token = accountManager.blockingGetAuthToken(mAccount, getString(R.string.auth_token_type), false);
+                    urlConnection.disconnect();
+                    urlConnection = (HttpsURLConnection) url.openConnection();
+                    urlConnection.setRequestMethod("GET");
+                    urlConnection.setRequestProperty("Authorization", "Bearer " + token);
+                    urlConnection.connect();
+                    responseCode = urlConnection.getResponseCode();
+                }
                 if (responseCode >= 200 && responseCode < 300) {
                     // successful response
                     Log.d(LOG_TAG, "server responses success " + responseCode);
@@ -236,6 +264,12 @@ public class UserFragment extends Fragment {
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error fetching user data", e);
                 return null;
+            } catch (AuthenticatorException e) {
+                Log.e(LOG_TAG, "Authentication Error fetching user data", e);
+                return null;
+            } catch (OperationCanceledException e) {
+                Log.e(LOG_TAG, "Authentication Error fetching user data", e);
+                return null;
             } finally{
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -263,6 +297,7 @@ public class UserFragment extends Fragment {
                 return null;
             }
         }
+
 
         @Override
         protected void onPostExecute(JSONObject userData) {

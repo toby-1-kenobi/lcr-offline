@@ -57,7 +57,7 @@ public class ReportActivity extends AppCompatActivity
                 Context.MODE_PRIVATE
         );
         // get current user phone number from shared preferences
-        String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
+        String phone = sharedPref.getString(getString(R.string.key_account_name), null);
 
         Spinner state_select = (Spinner) findViewById(R.id.report_state);
         mStateAdapter = new SimpleCursorAdapter(
@@ -109,7 +109,7 @@ public class ReportActivity extends AppCompatActivity
                     getString(R.string.preference_file_key),
                     Context.MODE_PRIVATE
             );
-            String phone = sharedPref.getString(getString(R.string.current_user_phone_key), null);
+            String phone = sharedPref.getString(getString(R.string.key_account_name), null);
             mStateAdapter.changeCursor(mDBHelper.getUserStates(phone));
         }
     }

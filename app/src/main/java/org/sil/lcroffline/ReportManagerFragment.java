@@ -1,6 +1,10 @@
 package org.sil.lcroffline;
 
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -52,6 +56,7 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
     private DatabaseHelper mDBHelper;
     private View mRootView;
     private SimpleDateFormat mDateFormat = new SimpleDateFormat("d MMMM yyyy");
+    private Account mAccount;
 
 
     public ReportManagerFragment() {
@@ -63,6 +68,20 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mDBHelper = new DatabaseHelper(getContext());
+        loadAccount();
+    }
+
+    private boolean loadAccount() {
+        SharedPreferences pref = getActivity().getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE);
+        String accountName = pref.getString(getString(R.string.key_account_name), null);
+        if (accountName != null) {
+            mAccount = new Account(accountName, getString(R.string.LCIR_account_type));
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Override
@@ -208,12 +227,13 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
         @Override
         protected Void doInBackground(Void... params) {
 
+            if (mAccount == null && !loadAccount()) {
+                return null;
+            }
+
             // get the authorisation token
-            SharedPreferences sharedPref = getContext().getSharedPreferences(
-            getString(R.string.preference_file_key),
-                    Context.MODE_PRIVATE
-            );
-            String jwt = sharedPref.getString(getString(R.string.jwt_key), null);
+            AccountManager am = AccountManager.get(getContext());
+            String jwt = null;
 
             // These need to be declared outside the try/catch
             // so that they can be closed in the finally block.
@@ -225,6 +245,8 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
             String JSONResponseStr = null;
 
             try {
+
+                jwt = am.blockingGetAuthToken(mAccount, getString(R.string.auth_token_type), false);
 
                 Uri builtUri = Uri.parse(BuildConfig.LCR_URL).buildUpon().appendPath("reports").appendPath("create_external").build();
                 URL url = new URL(builtUri.toString());
@@ -256,6 +278,21 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
 
                     // check the response
                     int responseCode = urlConnection.getResponseCode();
+                    if (responseCode == 401) {
+                        Log.d(LOG_TAG, "server denied authorisation, invalidating token and trying again.");
+                        AccountManager accountManager = AccountManager.get(getContext());
+                        accountManager.invalidateAuthToken(getString(R.string.LCIR_account_type), jwt);
+                        jwt = accountManager.blockingGetAuthToken(mAccount, getString(R.string.auth_token_type), false);
+                        urlConnection.disconnect();
+                        urlConnection = (HttpsURLConnection) url.openConnection();
+                        urlConnection.setRequestMethod("POST");
+                        urlConnection.setRequestProperty("Authorization", "Bearer " + jwt);
+                        urlConnection.setDoOutput(true);
+                        urlConnection.setRequestProperty("Content-Type", "application/json");
+                        urlConnection.setFixedLengthStreamingMode(postData.getBytes("UTF-8").length);
+                        urlConnection.connect();
+                        responseCode = urlConnection.getResponseCode();
+                    }
                     if (responseCode >= 200 && responseCode < 300) {
                         // successful response
                         Log.d(LOG_TAG, "server responses success " + responseCode);
@@ -302,6 +339,10 @@ public class ReportManagerFragment extends Fragment implements UserFragment.User
 
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error ", e);
+            }  catch (AuthenticatorException e) {
+                Log.e(LOG_TAG, "could not get authentication token - authentication problem.", e);
+            } catch (OperationCanceledException e) {
+                Log.i(LOG_TAG, "could not get authentication token - operation cancelled.");
             }
             if (urlConnection != null) {
                 urlConnection.disconnect();

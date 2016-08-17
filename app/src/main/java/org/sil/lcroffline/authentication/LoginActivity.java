@@ -112,9 +112,8 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             mPhoneView.setVisibility(View.GONE);
             View enterPassMsg = findViewById(R.id.enterPassMsg);
             enterPassMsg.setVisibility(View.VISIBLE);
-            String username = getApplicationContext().getSharedPreferences(
-                    getString(R.string.user_cred_preference_file_key), Context.MODE_PRIVATE)
-                    .getString(KEY_USERNAME, null);
+            //TODO: get username from the database
+            String username = null;
             TextView usernameView = (TextView) findViewById(R.id.userName);
             if (username != null) {
                 usernameView.setText(username + " (" + mAccountName + ")");
@@ -523,6 +522,12 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             } else {
                 Log.d(LOG_TAG, "token received");
                 // we've successfully retrieved the token from the server.
+
+                // if we have an account update the token on it
+                if (mAccount != null) {
+                    mAccountManager.setAuthToken(mAccount, getString(R.string.auth_token_type), token);
+                }
+
                 // set the account name
                 mAccountName = mPhone;
 

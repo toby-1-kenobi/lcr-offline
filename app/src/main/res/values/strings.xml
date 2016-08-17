@@ -29,14 +29,13 @@
     <string name="user_fragment_tag" translatable="false">user_fragment</string>
 
     <string name="LCIR_account_type" translatable="false">org.sil.lcir</string>
+    <string name="auth_token_type" translatable="false">standard_access</string>
 
     <!-- Strings pertaining to storing data to and retrieving data from shared preferences -->
     <string name="preference_file_key" translatable="false">org.sil.lcroffline.PREF_FILE</string>
-    <string name="current_user_phone_key" translatable="false">current_user_phone</string>
+    <string name="key_account_name" translatable="false">account_name</string>
     <string name="current_user_id_key" translatable="false">current_user_id</string>
-    <string name="jwt_key" translatable="false">jwt</string>
     <string name="user_cred_preference_file_key" translatable="false">org.sil.lcroffline.USER_CRED_PREF_FILE</string>
-    <string name="password_is_hashed_key" translatable="false">_password_is_hashed</string>
 
     <!-- Strings that should match LCR values -->
     <string name="LCR_report_key" translatable="false">report</string>

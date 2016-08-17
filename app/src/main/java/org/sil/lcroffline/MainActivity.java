@@ -70,6 +70,8 @@ public class MainActivity extends AppCompatActivity implements ChooseAccountDial
                                         addAccountResult.getString(AccountManager.KEY_ACCOUNT_NAME),
                                         addAccountResult.getString(AccountManager.KEY_ACCOUNT_TYPE));
                                 Log.d(LOG_TAG, "account created: " + addAccountResult.getString(AccountManager.KEY_ACCOUNT_NAME));
+                                mAccountManager.addAccountExplicitly(mAccount, null, null);
+                                storeAccount(mAccount);
                             } catch (OperationCanceledException e) {
                                 Log.i(LOG_TAG, "No LCIR account. Account creation cancelled");
                                 finish();
@@ -85,6 +87,7 @@ public class MainActivity extends AppCompatActivity implements ChooseAccountDial
         } else if (accounts.length == 1) {
             // easy: there's only one LCIR account so that's what we're using
             mAccount = accounts[0];
+            storeAccount(mAccount);
         } else {
             // more than one LCIR account on the device.
             // ask the user to choose.
@@ -93,6 +96,15 @@ public class MainActivity extends AppCompatActivity implements ChooseAccountDial
             args.putParcelableArray(ChooseAccountDialog.KEY_ACCOUNTS_ARRAY, accounts);
             chooseAccountDialog.setArguments(args);
         }
+    }
+
+    private void storeAccount(Account account) {
+        getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE)
+                .edit()
+                .putString(getString(R.string.key_account_name), account.name)
+                .apply();
     }
 
     @Override
@@ -110,6 +122,7 @@ public class MainActivity extends AppCompatActivity implements ChooseAccountDial
     @Override
     public void onDialogListItemClick(Account selected) {
         mAccount = selected;
+        storeAccount(mAccount);
     }
 
     @Override
