@@ -6,8 +6,10 @@ import android.accounts.AccountManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -28,6 +30,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.sil.lcroffline.BuildConfig;
 import org.sil.lcroffline.R;
+import org.sil.lcroffline.data.DatabaseContract;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -56,7 +59,6 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
     // keys for user values put into shared preferences
     // when using these keys they are prefixed with the account name
-    public static final String KEY_USERNAME = "username";
     public static final String KEY_HASHED_PASSWORD = "hashed_password";
     public static final String KEY_HASH_SALT = "hash_salt";
     public static final String KEY_LAST_AUTHENTICATED = "last_authenticated";
@@ -112,15 +114,29 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             mPhoneView.setVisibility(View.GONE);
             View enterPassMsg = findViewById(R.id.enterPassMsg);
             enterPassMsg.setVisibility(View.VISIBLE);
-            //TODO: get username from the database
-            String username = null;
+
+            // try to get user's name from the content provider
+            // if we can put it in the UI, otherwise just the account name (phone number)
             TextView usernameView = (TextView) findViewById(R.id.userName);
-            if (username != null) {
-                usernameView.setText(username + " (" + mAccountName + ")");
-            } else {
+            ContentResolver resolver = getContentResolver();
+            Cursor user = null;
+            try {
+                Uri getUserUri = DatabaseContract.UserEntry.buildUserPhoneUri(mAccountName);
+                user = resolver.query(getUserUri, null, null, null, null);
+                if (user.moveToFirst()) {
+                    String username = user.getString(user.getColumnIndexOrThrow(DatabaseContract.UserEntry.COLUMN_NAME));
+                    usernameView.setText(username + " (" + mAccountName + ")");
+                } else {
+                    usernameView.setText("Phone: " + mAccountName);
+                }
+            } catch (IllegalArgumentException | UnsupportedOperationException e) {
+                Log.e(LOG_TAG, "error getting username from content provider.", e);
                 usernameView.setText("Phone: " + mAccountName);
+            } finally {
+                if (user != null) user.close();
             }
             usernameView.setVisibility(View.VISIBLE);
+
         } else {
             Log.d(LOG_TAG, "no account");
             mAccountType = getIntent().getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);

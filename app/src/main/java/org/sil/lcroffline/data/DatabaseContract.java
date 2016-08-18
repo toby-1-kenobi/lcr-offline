@@ -26,12 +26,12 @@ public class DatabaseContract {
 
     public static final class UserEntry implements BaseColumns {
 
-        public static final String PATH_BY_PHONE = "by_phone";
+        public static final String PATH_BY_ACC_NAME = "by_account_name";
 
         public static final Uri CONTENT_URI =
                 BASE_CONTENT_URI.buildUpon().appendPath(PATH_USERS).build();
         public static final Uri CONTENT_BY_PHONE_URI =
-                BASE_CONTENT_URI.buildUpon().appendPath(PATH_USERS).appendPath(PATH_BY_PHONE).build();
+                BASE_CONTENT_URI.buildUpon().appendPath(PATH_USERS).appendPath(PATH_BY_ACC_NAME).build();
 
         public static final String CONTENT_TYPE =
                 ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + PATH_USERS;

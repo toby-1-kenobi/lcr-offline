@@ -7,11 +7,14 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 /**
  * Created by toby on 17/08/16.
  */
 public class DataProvider extends ContentProvider {
+
+    private final String LOG_TAG = DataProvider.class.getSimpleName();
 
     // The URI Matcher used by this content provider.
     private static final UriMatcher sUriMatcher = buildUriMatcher();
@@ -30,7 +33,7 @@ public class DataProvider extends ContentProvider {
         // Use the addURI function to match each of the types.
         String authority = DatabaseContract.CONTENT_AUTHORITY;
         matcher.addURI(authority, DatabaseContract.PATH_USERS, USER);
-        matcher.addURI(authority, DatabaseContract.PATH_USERS + DatabaseContract.UserEntry.PATH_BY_PHONE + "/*", USER_BY_ACC_NAME);
+        matcher.addURI(authority, DatabaseContract.PATH_USERS + "/" + DatabaseContract.UserEntry.PATH_BY_ACC_NAME + "/*", USER_BY_ACC_NAME);
         matcher.addURI(authority, DatabaseContract.PATH_REPORTS, REPORT);
 
         return matcher;
@@ -68,7 +71,8 @@ public class DataProvider extends ContentProvider {
         // Here's the switch statement that, given a URI, will determine what kind of request it is,
         // and query the database accordingly.
         Cursor retCursor;
-        switch (sUriMatcher.match(uri)) {
+        int match = sUriMatcher.match(uri);
+        switch (match) {
             case USER: {
                 retCursor = mDbHelper.getReadableDatabase().query(
                         DatabaseContract.UserEntry.TABLE_NAME,

@@ -44,6 +44,10 @@
             <meta-data android:name="android.accounts.AccountAuthenticator"
                 android:resource="@xml/authenticator" />
         </service>
+        <provider
+            android:authorities="org.sil.lcroffline"
+            android:name=".data.DataProvider"
+            android:exported="false" />
     </application>
 
 </manifest>
